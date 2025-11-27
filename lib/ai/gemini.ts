@@ -40,8 +40,8 @@ ${transcript}`
   }
   
   // Use Google Gemini API (Generative AI)
-  // Note: Adjust the model name and endpoint based on Google AI SDK version
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`
+  // Updated to use gemini-1.5-pro (gemini-pro is deprecated)
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`
   
   const response = await fetch(url, {
     method: 'POST',
