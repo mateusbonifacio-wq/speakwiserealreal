@@ -19,36 +19,9 @@ export async function transcribeWithElevenLabs(
     throw new Error('ELEVENLABS_API_KEY is not set')
   }
 
-  try {
-    // Use the official ElevenLabs SDK
-    const { ElevenLabs } = await import('@elevenlabs/elevenlabs-js')
-    
-    const client = new ElevenLabs({
-      apiKey: apiKey,
-    })
-
-    // Convert Buffer to a format the SDK can use
-    // The SDK expects a File, Blob, or stream
-    const blob = new Blob([audioBuffer], { type: 'audio/mpeg' })
-    const file = new File([blob], 'audio.mp3', { type: 'audio/mpeg' })
-
-    // Call the Speech-to-Text API
-    const transcription = await client.speechToText.convert({
-      file: file,
-      modelId: options.modelId || 'scribe_v1',
-      languageCode: options.languageCode || 'eng',
-      diarize: options.diarize !== undefined ? options.diarize : true,
-      tagAudioEvents: options.tagAudioEvents !== undefined ? options.tagAudioEvents : true,
-    })
-
-    // The transcription should be a string
-    return typeof transcription === 'string' ? transcription : JSON.stringify(transcription)
-  } catch (error: any) {
-    // If SDK fails, fall back to REST API
-    console.warn('ElevenLabs SDK failed, trying REST API:', error.message)
-    
-    return transcribeWithElevenLabsREST(audioBuffer, options, apiKey)
-  }
+  // Use REST API directly (SDK may not work well in Node.js server environment)
+  // Based on Python SDK: elevenlabs.speech_to_text.convert()
+  return transcribeWithElevenLabsREST(audioBuffer, options, apiKey)
 }
 
 /**
