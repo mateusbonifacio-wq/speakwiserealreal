@@ -27,16 +27,11 @@ export async function transcribeWithElevenLabs(
       apiKey: apiKey.trim(),
     })
 
-    // Convert Buffer to Blob for the SDK
-    const blob = new Blob([audioBuffer], { type: 'audio/mpeg' })
-    
-    // Create a File-like object from the Blob
-    // The SDK expects a File, but we can pass a Blob with a filename
-    const file = new File([blob], 'audio.mp3', { type: 'audio/mpeg' })
-
-    // Call the Speech-to-Text API using the SDK
+    // The SDK accepts Buffer, Blob, File, or ReadableStream
+    // In Node.js, we can pass the Buffer directly or convert to a stream
+    // Let's try passing the Buffer directly first
     const response = await client.speechToText.convert({
-      file: file,
+      file: audioBuffer as any, // SDK should accept Buffer
       modelId: options.modelId || 'scribe_v1',
       languageCode: options.languageCode || 'eng',
       diarize: options.diarize !== undefined ? options.diarize : true,
