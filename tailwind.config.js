@@ -9,5 +9,9 @@ module.exports = {
     extend: {},
   },
   plugins: [],
+  // Ensure compatibility with Next.js
+  corePlugins: {
+    preflight: true,
+  },
 }
 
