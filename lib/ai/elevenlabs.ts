@@ -82,7 +82,15 @@ export async function transcribeWithElevenLabs(
         }
       } else {
         const errorText = await response.text()
-        const errorData = errorText ? JSON.parse(errorText).catch(() => ({ detail: errorText })) : { detail: 'Unknown error' }
+        let errorData: any = { detail: errorText || 'Unknown error' }
+        try {
+          if (errorText) {
+            errorData = JSON.parse(errorText)
+          }
+        } catch {
+          // If not JSON, use the text as-is
+          errorData = { detail: errorText }
+        }
         
         // If it's not 404, this might be the right endpoint but with wrong params
         if (response.status !== 404) {
