@@ -41,7 +41,7 @@ export default function AuthPage() {
         if (error) throw error
       }
 
-      router.push('/dashboard')
+      router.push('/projects')
       router.refresh()
     } catch (err: any) {
       setError(err.message || 'An error occurred')

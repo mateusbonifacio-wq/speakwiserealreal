@@ -5,6 +5,7 @@ import { useState } from 'react'
 interface AudioSession {
   id: string
   user_id: string
+  project_id?: string | null
   type: string
   audio_path: string
   transcript: string | null

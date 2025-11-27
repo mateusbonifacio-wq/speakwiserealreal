@@ -4,6 +4,7 @@ import { createServiceClient } from './service'
 export interface AudioSession {
   id: string
   user_id: string
+  project_id: string | null
   type: string
   audio_path: string
   transcript: string | null
@@ -17,7 +18,8 @@ export interface AudioSession {
 export async function createAudioSession(
   userId: string,
   type: 'pitch' | 'context',
-  audioPath: string
+  audioPath: string,
+  projectId?: string | null
 ): Promise<AudioSession> {
   const supabase = await createClient()
   
@@ -25,6 +27,7 @@ export async function createAudioSession(
     .from('audio_sessions')
     .insert({
       user_id: userId,
+      project_id: projectId ?? null,
       type,
       audio_path: audioPath,
       transcript: null,
@@ -68,7 +71,8 @@ export async function getAudioSession(
  * Get all audio sessions for the current user
  */
 export async function getUserAudioSessions(
-  type?: 'pitch' | 'context'
+  type?: 'pitch' | 'context',
+  projectId?: string
 ): Promise<AudioSession[]> {
   const supabase = await createClient()
   
@@ -81,6 +85,10 @@ export async function getUserAudioSessions(
     query = query.eq('type', type)
   }
   
+  if (projectId) {
+    query = query.eq('project_id', projectId)
+  }
+
   const { data, error } = await query
   
   if (error) {

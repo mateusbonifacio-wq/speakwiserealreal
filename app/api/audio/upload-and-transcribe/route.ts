@@ -16,6 +16,7 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData()
     const audioFile = formData.get('audio') as File
     const type = formData.get('type') as string
+    const projectId = formData.get('project_id') as string | null
 
     if (!audioFile) {
       return NextResponse.json({ error: 'No audio file provided' }, { status: 400 })
@@ -25,11 +26,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid type. Must be "pitch" or "context"' }, { status: 400 })
     }
 
+    const supabase = await createClient()
+
+    let validatedProjectId: string | null = null
+    if (projectId) {
+      const { data: project, error: projectError } = await supabase
+        .from('projects')
+        .select('id, user_id')
+        .eq('id', projectId)
+        .single()
+
+      if (projectError || !project || project.user_id !== user.id) {
+        return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+      }
+
+      validatedProjectId = project.id
+    }
+
     // 3. Create audio session record (with placeholder path)
     const audioSession = await createAudioSession(
       user.id,
       type as 'pitch' | 'context',
-      'placeholder' // Will be updated after upload
+      'placeholder', // Will be updated after upload
+      validatedProjectId
     )
 
     // 4. Convert File to Buffer
@@ -49,7 +68,6 @@ export async function POST(request: NextRequest) {
     )
 
     // 7. Update audio session with actual path
-    const supabase = await createClient()
     await supabase
       .from('audio_sessions')
       .update({ audio_path: uploadResult.path })

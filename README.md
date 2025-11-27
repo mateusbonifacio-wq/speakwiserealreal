@@ -9,6 +9,7 @@ AI-powered pitch coaching application built with Next.js, TypeScript, Supabase, 
 - **Speech-to-Text**: Automatic transcription using ElevenLabs API
 - **AI Analysis**: Get structured feedback using Google Gemini API
 - **Session Management**: Track and review past audio sessions
+- **Projects Layer**: Organize multiple pitches/interviews with project-specific defaults
 
 ## Tech Stack
 
@@ -97,8 +98,9 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 │   │       └── analyze/route.ts
 │   ├── auth/
 │   │   └── page.tsx          # Sign up/sign in page
-│   ├── dashboard/
-│   │   └── page.tsx          # Main dashboard
+│   ├── projects/
+│   │   ├── page.tsx          # Projects dashboard
+│   │   └── [projectId]/page.tsx # Project workspace
 │   ├── layout.tsx
 │   ├── page.tsx              # Root page (redirects)
 │   └── globals.css

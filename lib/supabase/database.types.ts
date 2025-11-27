@@ -26,10 +26,52 @@ export interface Database {
           created_at?: string
         }
       }
+      projects: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          description: string | null
+          project_type: string | null
+          default_audience: string | null
+          default_goal: string | null
+          default_duration: string | null
+          default_scenario: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
+          description?: string | null
+          project_type?: string | null
+          default_audience?: string | null
+          default_goal?: string | null
+          default_duration?: string | null
+          default_scenario?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          name?: string
+          description?: string | null
+          project_type?: string | null
+          default_audience?: string | null
+          default_goal?: string | null
+          default_duration?: string | null
+          default_scenario?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
       audio_sessions: {
         Row: {
           id: string
           user_id: string
+          project_id: string | null
           type: string
           audio_path: string
           transcript: string | null
@@ -39,6 +81,7 @@ export interface Database {
         Insert: {
           id?: string
           user_id: string
+          project_id?: string | null
           type: string
           audio_path: string
           transcript?: string | null
@@ -48,6 +91,7 @@ export interface Database {
         Update: {
           id?: string
           user_id?: string
+          project_id?: string | null
           type?: string
           audio_path?: string
           transcript?: string | null

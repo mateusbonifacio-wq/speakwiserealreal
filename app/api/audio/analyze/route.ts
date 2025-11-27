@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/supabase/server'
 import { getAudioSession, updateAudioSessionAnalysis } from '@/lib/supabase/audio-sessions'
+import { getProjectById } from '@/lib/supabase/projects'
 import { analyzeWithGemini } from '@/lib/ai/gemini'
 
 export async function POST(request: NextRequest) {
@@ -13,11 +14,12 @@ export async function POST(request: NextRequest) {
 
     // 2. Parse request body
     const body = await request.json()
-    const { audio_session_id, pitch_transcript, context } = body
+    const { audio_session_id, pitch_transcript, context, project_id } = body
 
     // Support both old format (audio_session_id) and new format (pitch_transcript + context)
     let transcript: string
     let sessionType: 'pitch' | 'context' = 'pitch'
+    let projectIdForContext: string | null = project_id || null
 
     if (pitch_transcript) {
       // New format: direct transcript and context
@@ -44,6 +46,7 @@ export async function POST(request: NextRequest) {
 
       transcript = audioSession.transcript
       sessionType = audioSession.type as 'pitch' | 'context'
+      projectIdForContext = audioSession.project_id
     } else {
       return NextResponse.json(
         { error: 'Either audio_session_id or pitch_transcript is required' },
@@ -58,23 +61,46 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 3. Build context string if provided
-    let contextString = ''
-    if (context) {
-      const contextParts: string[] = []
-      if (context.audience) contextParts.push(`Audience: ${context.audience}`)
-      if (context.goal) contextParts.push(`Goal: ${context.goal}`)
-      if (context.duration) contextParts.push(`Duration: ${context.duration}`)
-      if (context.scenario) contextParts.push(`Scenario: ${context.scenario}`)
-      if (context.english_level) contextParts.push(`English Level: ${context.english_level}`)
-      if (context.tone_style) contextParts.push(`Tone/Style: ${context.tone_style}`)
-      if (context.constraints) contextParts.push(`Constraints: ${context.constraints}`)
-      if (context.additional_notes) contextParts.push(`Additional Notes: ${context.additional_notes}`)
-      if (context.context_transcript) contextParts.push(`Context Transcript: ${context.context_transcript}`)
-      
-      if (contextParts.length > 0) {
-        contextString = '\n\nContext Information:\n' + contextParts.join('\n')
+    // 3. Fetch project defaults if provided
+    let projectContext = null
+    if (projectIdForContext) {
+      projectContext = await getProjectById(projectIdForContext)
+      if (!projectContext) {
+        return NextResponse.json({ error: 'Project not found' }, { status: 404 })
       }
+    }
+
+    const combinedContext = {
+      audience: context?.audience || projectContext?.default_audience || '',
+      goal: context?.goal || projectContext?.default_goal || '',
+      duration: context?.duration || projectContext?.default_duration || '',
+      scenario: context?.scenario || projectContext?.default_scenario || '',
+      english_level: context?.english_level || '',
+      tone_style: context?.tone_style || '',
+      constraints: context?.constraints || '',
+      additional_notes: context?.additional_notes || '',
+      context_transcript: context?.context_transcript || '',
+    }
+
+    const contextParts: string[] = []
+    if (projectContext) {
+      contextParts.push(
+        `Project: ${projectContext.name}${projectContext.project_type ? ` (${projectContext.project_type})` : ''}`
+      )
+    }
+    if (combinedContext.audience) contextParts.push(`Audience: ${combinedContext.audience}`)
+    if (combinedContext.goal) contextParts.push(`Goal: ${combinedContext.goal}`)
+    if (combinedContext.duration) contextParts.push(`Duration: ${combinedContext.duration}`)
+    if (combinedContext.scenario) contextParts.push(`Scenario: ${combinedContext.scenario}`)
+    if (combinedContext.english_level) contextParts.push(`English Level: ${combinedContext.english_level}`)
+    if (combinedContext.tone_style) contextParts.push(`Tone/Style: ${combinedContext.tone_style}`)
+    if (combinedContext.constraints) contextParts.push(`Constraints: ${combinedContext.constraints}`)
+    if (combinedContext.additional_notes) contextParts.push(`Additional Notes: ${combinedContext.additional_notes}`)
+    if (combinedContext.context_transcript) contextParts.push(`Context Transcript: ${combinedContext.context_transcript}`)
+
+    let contextString = ''
+    if (contextParts.length > 0) {
+      contextString = '\n\nContext Information:\n' + contextParts.join('\n')
     }
 
     // 4. Analyze with Gemini (pass full transcript with context)
@@ -89,6 +115,7 @@ export async function POST(request: NextRequest) {
     // 6. Return analysis
     return NextResponse.json({
       analysis_json: analysisJson,
+      combined_context: combinedContext,
     })
   } catch (error: any) {
     console.error('Analysis error:', error)

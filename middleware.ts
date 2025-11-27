@@ -66,16 +66,18 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Protect dashboard routes
-  if (request.nextUrl.pathname.startsWith('/dashboard')) {
-    if (!user) {
-      return NextResponse.redirect(new URL('/auth', request.url))
-    }
+  const protectedPrefixes = ['/dashboard', '/projects']
+  const isProtected = protectedPrefixes.some((prefix) =>
+    request.nextUrl.pathname.startsWith(prefix)
+  )
+
+  if (isProtected && !user) {
+    return NextResponse.redirect(new URL('/auth', request.url))
   }
 
   // Redirect authenticated users away from auth page
   if (request.nextUrl.pathname === '/auth' && user) {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
+    return NextResponse.redirect(new URL('/projects', request.url))
   }
 
   return response
