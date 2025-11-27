@@ -19,77 +19,74 @@ export async function transcribeWithElevenLabs(
     throw new Error('ELEVENLABS_API_KEY is not set')
   }
 
-  // Use REST API directly (SDK may not work well in Node.js server environment)
-  // Based on Python SDK: elevenlabs.speech_to_text.convert()
-  return transcribeWithElevenLabsREST(audioBuffer, options, apiKey)
-}
+  try {
+    // Use the official ElevenLabs SDK
+    const { ElevenLabsClient } = await import('@elevenlabs/elevenlabs-js')
+    
+    const client = new ElevenLabsClient({
+      apiKey: apiKey.trim(),
+    })
 
-/**
- * Fallback REST API implementation
- */
-async function transcribeWithElevenLabsREST(
-  audioBuffer: Buffer,
-  options: {
-    modelId?: string
-    languageCode?: string
-    diarize?: boolean
-    tagAudioEvents?: boolean
-  },
-  apiKey: string
-): Promise<string> {
-  const FormData = (await import('form-data')).default
-  
-  const formData = new FormData()
-  formData.append('file', audioBuffer, {
-    filename: 'audio.mp3',
-    contentType: 'audio/mpeg',
-  })
-  
-  if (options.modelId) {
-    formData.append('model_id', options.modelId)
-  }
-  if (options.languageCode) {
-    formData.append('language_code', options.languageCode)
-  }
-  if (options.diarize !== undefined) {
-    formData.append('diarize', options.diarize.toString())
-  }
-  if (options.tagAudioEvents !== undefined) {
-    formData.append('tag_audio_events', options.tagAudioEvents.toString())
-  }
-  
-  // Try the endpoint based on Python SDK: speech_to_text.convert()
-  const endpoint = 'https://api.elevenlabs.io/v1/speech-to-text/convert'
-  
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      'xi-api-key': apiKey,
-      ...(formData.getHeaders ? formData.getHeaders() : {}),
-    },
-    // @ts-ignore
-    body: formData,
-  })
+    // Convert Buffer to Blob for the SDK
+    const blob = new Blob([audioBuffer], { type: 'audio/mpeg' })
+    
+    // Create a File-like object from the Blob
+    // The SDK expects a File, but we can pass a Blob with a filename
+    const file = new File([blob], 'audio.mp3', { type: 'audio/mpeg' })
 
-  if (!response.ok) {
-    const errorText = await response.text()
-    let errorData: any = { detail: errorText || 'Unknown error' }
-    try {
-      if (errorText) {
-        errorData = JSON.parse(errorText)
-      }
-    } catch {
-      errorData = { detail: errorText }
+    // Call the Speech-to-Text API using the SDK
+    const response = await client.speechToText.convert({
+      file: file,
+      modelId: options.modelId || 'scribe_v1',
+      languageCode: options.languageCode || 'eng',
+      diarize: options.diarize !== undefined ? options.diarize : true,
+      tagAudioEvents: options.tagAudioEvents !== undefined ? options.tagAudioEvents : true,
+    })
+
+    // The response is a SpeechToTextChunkResponseModel or similar
+    // Extract the text from the response
+    if (typeof response === 'string') {
+      return response
     }
-    throw new Error(`ElevenLabs API error: ${response.status} - ${JSON.stringify(errorData)}`)
-  }
+    
+    // Handle different response types
+    if (response && typeof response === 'object') {
+      // If it's a chunk response with text property
+      if ('text' in response && typeof response.text === 'string') {
+        return response.text
+      }
+      // If it's a chunk response with words array
+      if ('words' in response && Array.isArray(response.words)) {
+        return response.words
+          .map((word: any) => word.word || word.text || '')
+          .filter(Boolean)
+          .join(' ')
+      }
+      // If it's a multichannel response
+      if ('transcripts' in response && Array.isArray(response.transcripts)) {
+        return response.transcripts
+          .map((transcript: any) => {
+            if (typeof transcript === 'string') return transcript
+            if ('text' in transcript) return transcript.text
+            if ('words' in transcript && Array.isArray(transcript.words)) {
+              return transcript.words
+                .map((word: any) => word.word || word.text || '')
+                .filter(Boolean)
+                .join(' ')
+            }
+            return ''
+          })
+          .filter(Boolean)
+          .join('\n')
+      }
+    }
 
-  const contentType = response.headers.get('content-type')
-  if (contentType?.includes('application/json')) {
-    const data = await response.json()
-    return data.text || data.transcript || data.transcription || JSON.stringify(data)
-  } else {
-    return await response.text()
+    // Fallback: stringify the response
+    return JSON.stringify(response)
+  } catch (error: any) {
+    // If SDK fails, provide detailed error
+    console.error('ElevenLabs SDK error:', error)
+    throw new Error(`ElevenLabs API error: ${error.message || 'Unknown error'}`)
   }
 }
 
