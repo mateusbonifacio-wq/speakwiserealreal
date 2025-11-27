@@ -47,7 +47,10 @@ GOOGLE_AI_API_KEY=your_google_ai_api_key
 Run the SQL in `supabase/schema.sql` in your Supabase SQL editor to create:
 - `profiles` table
 - `audio_sessions` table
+- `projects` table (if not already created)
 - Row Level Security (RLS) policies
+
+**Important:** If you're adding the projects feature to an existing database, run `supabase/add-projects.sql` instead to add the `projects` table and `project_id` column to `audio_sessions` without recreating existing tables.
 
 #### Storage Bucket
 
