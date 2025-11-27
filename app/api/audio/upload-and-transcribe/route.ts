@@ -55,10 +55,15 @@ export async function POST(request: NextRequest) {
       .update({ audio_path: uploadResult.path })
       .eq('id', audioSession.id)
 
-    // 8. Transcribe with ElevenLabs
+    // 8. Transcribe with ElevenLabs using scribe_v1 model with diarization
     let transcript: string
     try {
-      transcript = await transcribeWithElevenLabs(audioBuffer)
+      transcript = await transcribeWithElevenLabs(audioBuffer, {
+        modelId: 'scribe_v1',
+        languageCode: 'eng',
+        diarize: true,
+        tagAudioEvents: true,
+      })
     } catch (transcribeError: any) {
       console.error('Transcription error:', transcribeError)
       // Still return success but with error in transcript

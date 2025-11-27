@@ -166,7 +166,20 @@ Analyzes a transcribed audio session using Google Gemini.
 
 ### ElevenLabs API
 
-The ElevenLabs Speech-to-Text endpoint may need adjustment based on their current API documentation. Update the endpoint in `lib/ai/elevenlabs.ts` if needed.
+The ElevenLabs Speech-to-Text integration uses the REST API endpoint. The current implementation:
+
+- **Endpoint**: `https://api.elevenlabs.io/v1/speech-to-text/convert`
+- **Model**: `scribe_v1` (may need to be `eleven_scribe_v1` depending on your API version)
+- **Features**: Diarization and audio event tagging enabled by default
+
+If you encounter issues:
+
+1. **Check the endpoint**: The endpoint might be `/v1/speech-to-text/transcribe` or `/v1/speech-to-text` instead
+2. **Verify model ID**: Try `eleven_scribe_v1` if `scribe_v1` doesn't work
+3. **Check field name**: The audio field might need to be `audio` instead of `file`
+4. **Review API docs**: Check [ElevenLabs API documentation](https://elevenlabs.io/docs/api-reference/speech-to-text) for the latest endpoint format
+
+Update `lib/ai/elevenlabs.ts` with the correct endpoint and parameters based on your API version.
 
 ### Google Gemini API
 
