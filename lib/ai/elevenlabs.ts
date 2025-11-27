@@ -23,16 +23,15 @@ export async function transcribeWithElevenLabs(
   // In Node.js, we need to use form-data package
   const FormData = (await import('form-data')).default
   
-  // Helper function to create FormData
-  const createFormData = () => {
+  // Helper function to create FormData with different field names
+  const createFormData = (fieldName: 'file' | 'audio' = 'file') => {
     const formData = new FormData()
-    // Try 'file' first, might need to be 'audio' based on API
-    formData.append('file', audioBuffer, {
+    formData.append(fieldName, audioBuffer, {
       filename: 'audio.mp3',
       contentType: 'audio/mpeg',
     })
     
-    // Append optional parameters
+    // Append optional parameters (only if provided)
     if (options.modelId) {
       formData.append('model_id', options.modelId)
     }
@@ -48,19 +47,21 @@ export async function transcribeWithElevenLabs(
     return formData
   }
   
-  // ElevenLabs Speech-to-Text API endpoint
-  // Based on the Python SDK example, try these endpoints in order
+  // ElevenLabs Speech-to-Text API endpoints to try
+  // Based on the Python SDK: elevenlabs.speech_to_text.convert()
   const endpoints = [
-    'https://api.elevenlabs.io/v1/speech-to-text',
-    'https://api.elevenlabs.io/v1/speech-to-text/convert',
+    { url: 'https://api.elevenlabs.io/v1/speech-to-text', field: 'file' as const },
+    { url: 'https://api.elevenlabs.io/v1/speech-to-text', field: 'audio' as const },
+    { url: 'https://api.elevenlabs.io/v1/speech-to-text/convert', field: 'file' as const },
+    { url: 'https://api.elevenlabs.io/v1/speech-to-text/convert', field: 'audio' as const },
   ]
 
   let lastError: Error | null = null
   
-  for (const endpoint of endpoints) {
+  for (const { url, field } of endpoints) {
     try {
-      const formData = createFormData()
-      const response = await fetch(endpoint, {
+      const formData = createFormData(field)
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'xi-api-key': apiKey,
@@ -79,18 +80,27 @@ export async function transcribeWithElevenLabs(
         } else {
           return await response.text()
         }
-      } else if (response.status !== 404) {
-        // If it's not 404, this might be the right endpoint but with wrong params
+      } else {
         const errorText = await response.text()
-        lastError = new Error(`ElevenLabs API error: ${response.status} - ${errorText}`)
-        // Don't continue if it's a 400/401/403 - those are parameter/auth errors
-        if (response.status < 404) {
-          throw lastError
+        const errorData = errorText ? JSON.parse(errorText).catch(() => ({ detail: errorText })) : { detail: 'Unknown error' }
+        
+        // If it's not 404, this might be the right endpoint but with wrong params
+        if (response.status !== 404) {
+          lastError = new Error(`ElevenLabs API error: ${response.status} - ${JSON.stringify(errorData)}`)
+          // Don't continue if it's a 400/401/403 - those are parameter/auth errors
+          if (response.status < 404) {
+            throw lastError
+          }
+        } else {
+          lastError = new Error(`Endpoint not found: ${url} (field: ${field})`)
         }
       }
-      // If 404, try next endpoint
-      lastError = new Error(`Endpoint not found: ${endpoint}`)
     } catch (error: any) {
+      // If it's a JSON parse error, continue
+      if (error.name === 'SyntaxError' && error.message.includes('JSON')) {
+        lastError = error
+        continue
+      }
       lastError = error
       // Continue to next endpoint only if it was a 404
       if (error.message && !error.message.includes('404') && !error.message.includes('Not Found')) {
@@ -100,7 +110,13 @@ export async function transcribeWithElevenLabs(
   }
 
   // If all endpoints failed with 404, provide helpful error
-  throw new Error(`ElevenLabs Speech-to-Text endpoint not found. Tried: ${endpoints.join(', ')}. Please check the ElevenLabs API documentation for the correct endpoint. The endpoint may have changed or your API key may not have access to Speech-to-Text features.`)
+  throw new Error(
+    `ElevenLabs Speech-to-Text endpoint not found. ` +
+    `This feature may require a specific ElevenLabs plan. ` +
+    `Please verify: 1) Your API key has Speech-to-Text access, 2) Check the latest ElevenLabs API docs, ` +
+    `3) The endpoint may be: https://api.elevenlabs.io/v1/speech-to-text or /v1/speech-to-text/convert. ` +
+    `Last error: ${lastError?.message || 'Unknown'}`
+  )
   
   if (!response.ok) {
     const errorText = await response.text()
