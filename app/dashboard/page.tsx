@@ -3,6 +3,10 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import PitchSection from '@/app/components/PitchSection'
+import ContextSection from '@/app/components/ContextSection'
+import SessionsPanel from '@/app/components/SessionsPanel'
+import AnalysisPanel from '@/app/components/AnalysisPanel'
 
 interface AudioSession {
   id: string
@@ -14,15 +18,43 @@ interface AudioSession {
   created_at: string
 }
 
+interface ContextFields {
+  audience: string
+  goal: string
+  duration: string
+  scenario: string
+  english_level: string
+  tone_style: string
+  constraints: string
+  additional_notes: string
+  context_transcript: string
+}
+
 export default function DashboardPage() {
   const [user, setUser] = useState<any>(null)
   const [pitchSessions, setPitchSessions] = useState<AudioSession[]>([])
   const [contextSessions, setContextSessions] = useState<AudioSession[]>([])
   const [selectedSession, setSelectedSession] = useState<AudioSession | null>(null)
   const [loading, setLoading] = useState(true)
-  const [uploading, setUploading] = useState(false)
-  const [recording, setRecording] = useState(false)
-  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null)
+  const [isTranscribing, setIsTranscribing] = useState(false)
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+
+  // Pitch state
+  const [pitchTranscript, setPitchTranscript] = useState('')
+
+  // Context state
+  const [contextFields, setContextFields] = useState<ContextFields>({
+    audience: '',
+    goal: '',
+    duration: '',
+    scenario: '',
+    english_level: '',
+    tone_style: '',
+    constraints: '',
+    additional_notes: '',
+    context_transcript: '',
+  })
+
   const router = useRouter()
   const supabase = createClient()
 
@@ -62,11 +94,11 @@ export default function DashboardPage() {
     }
   }
 
-  const handleFileUpload = async (file: File, type: 'pitch' | 'context') => {
-    setUploading(true)
+  const handleTranscribe = async (audioFile: File, type: 'pitch' | 'context'): Promise<string> => {
+    setIsTranscribing(true)
     try {
       const formData = new FormData()
-      formData.append('audio', file)
+      formData.append('audio', audioFile)
       formData.append('type', type)
 
       const response = await fetch('/api/audio/upload-and-transcribe', {
@@ -76,58 +108,43 @@ export default function DashboardPage() {
 
       if (!response.ok) {
         const error = await response.json()
-        throw new Error(error.error || 'Upload failed')
+        throw new Error(error.error || 'Transcription failed')
       }
 
+      const data = await response.json()
       await loadSessions()
-      alert('Audio uploaded and transcribed successfully!')
+      return data.transcript || ''
     } catch (error: any) {
       alert(`Error: ${error.message}`)
+      throw error
     } finally {
-      setUploading(false)
+      setIsTranscribing(false)
     }
   }
 
-  const startRecording = async (type: 'pitch' | 'context') => {
+  const handlePitchTranscribe = async (audioFile: File): Promise<string> => {
+    return handleTranscribe(audioFile, 'pitch')
+  }
+
+  const handleContextTranscribe = async (audioFile: File): Promise<string> => {
+    return handleTranscribe(audioFile, 'context')
+  }
+
+  const handleAnalyze = async (sessionId?: string) => {
+    setIsAnalyzing(true)
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const recorder = new MediaRecorder(stream)
-      const chunks: Blob[] = []
+      // If sessionId provided, use old format; otherwise use new format with current state
+      const body = sessionId
+        ? { audio_session_id: sessionId }
+        : {
+            pitch_transcript: pitchTranscript,
+            context: contextFields,
+          }
 
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunks.push(e.data)
-      }
-
-      recorder.onstop = async () => {
-        const blob = new Blob(chunks, { type: 'audio/webm' })
-        const file = new File([blob], `recording-${Date.now()}.webm`, { type: 'audio/webm' })
-        await handleFileUpload(file, type)
-        stream.getTracks().forEach(track => track.stop())
-      }
-
-      recorder.start()
-      setMediaRecorder(recorder)
-      setRecording(true)
-    } catch (error) {
-      alert('Error accessing microphone')
-      console.error(error)
-    }
-  }
-
-  const stopRecording = () => {
-    if (mediaRecorder) {
-      mediaRecorder.stop()
-      setMediaRecorder(null)
-      setRecording(false)
-    }
-  }
-
-  const handleAnalyze = async (sessionId: string) => {
-    try {
       const response = await fetch('/api/audio/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ audio_session_id: sessionId }),
+        body: JSON.stringify(body),
       })
 
       if (!response.ok) {
@@ -135,19 +152,48 @@ export default function DashboardPage() {
         throw new Error(error.error || 'Analysis failed')
       }
 
-      await loadSessions()
-      const updatedSession = [...pitchSessions, ...contextSessions].find(s => s.id === sessionId)
-      if (updatedSession) {
-        const { data } = await supabase
+      const data = await response.json()
+
+      // If we have a selected session, update it
+      if (selectedSession) {
+        await loadSessions()
+        const { data: updatedSession } = await supabase
           .from('audio_sessions')
           .select('*')
-          .eq('id', sessionId)
+          .eq('id', selectedSession.id)
           .single()
-        if (data) setSelectedSession(data)
+        if (updatedSession) setSelectedSession(updatedSession)
+      } else {
+        // Create a temporary session object to display analysis
+        setSelectedSession({
+          id: 'temp',
+          user_id: user.id,
+          type: 'pitch',
+          audio_path: '',
+          transcript: pitchTranscript,
+          analysis_json: data.analysis_json,
+          created_at: new Date().toISOString(),
+        })
       }
-      alert('Analysis completed!')
     } catch (error: any) {
       alert(`Error: ${error.message}`)
+    } finally {
+      setIsAnalyzing(false)
+    }
+  }
+
+  const handleSelectSession = (session: AudioSession) => {
+    setSelectedSession(session)
+    if (session.type === 'pitch' && session.transcript) {
+      setPitchTranscript(session.transcript)
+    } else if (session.type === 'context' && session.transcript) {
+      setContextFields((prev) => ({
+        ...prev,
+        context_transcript: session.transcript || '',
+        additional_notes: prev.additional_notes
+          ? `${prev.additional_notes}\n\n${session.transcript}`
+          : session.transcript || '',
+      }))
     }
   }
 
@@ -157,255 +203,90 @@ export default function DashboardPage() {
   }
 
   if (loading) {
-    return <div style={{ padding: '2rem' }}>Loading...</div>
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-indigo-500 via-purple-500 to-sky-500 flex items-center justify-center">
+        <div className="text-white text-xl">Loading...</div>
+      </div>
+    )
   }
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-        <h1>Welcome, {user?.email}</h1>
-        <button
-          onClick={handleSignOut}
-          style={{
-            padding: '0.5rem 1rem',
-            backgroundColor: '#dc3545',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer'
-          }}
-        >
-          Sign Out
-        </button>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '2rem' }}>
-        {/* Pitch Audio Section */}
-        <div style={{ border: '1px solid #ddd', padding: '1.5rem', borderRadius: '8px' }}>
-          <h2 style={{ marginBottom: '1rem' }}>Pitch Audio</h2>
-          
-          <div style={{ marginBottom: '1rem' }}>
-            <input
-              type="file"
-              accept="audio/*"
-              onChange={(e) => {
-                const file = e.target.files?.[0]
-                if (file) handleFileUpload(file, 'pitch')
-              }}
-              disabled={uploading || recording}
-              style={{ marginBottom: '0.5rem' }}
-            />
-            <div>
-              {recording ? (
-                <button
-                  onClick={stopRecording}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    backgroundColor: '#dc3545',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Stop Recording
-                </button>
-              ) : (
-                <button
-                  onClick={() => startRecording('pitch')}
-                  disabled={uploading || recording}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    backgroundColor: '#28a745',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Record Audio
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div>
-            <h3 style={{ marginBottom: '0.5rem' }}>Past Pitch Sessions</h3>
-            {pitchSessions.length === 0 ? (
-              <p style={{ color: '#666' }}>No pitch sessions yet</p>
-            ) : (
-              <ul style={{ listStyle: 'none' }}>
-                {pitchSessions.map((session) => (
-                  <li
-                    key={session.id}
-                    onClick={() => setSelectedSession(session)}
-                    style={{
-                      padding: '0.5rem',
-                      marginBottom: '0.5rem',
-                      backgroundColor: selectedSession?.id === session.id ? '#e3f2fd' : '#f5f5f5',
-                      cursor: 'pointer',
-                      borderRadius: '4px'
-                    }}
-                  >
-                    {new Date(session.created_at).toLocaleString()}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+    <div className="min-h-screen bg-gradient-to-b from-indigo-500 via-purple-500 to-sky-500 py-8 px-4">
+      {/* Header */}
+      <div className="max-w-6xl mx-auto mb-6 flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold text-white">SpeakWise Real</h1>
+          <p className="text-indigo-100 text-sm mt-1">AI-Powered Pitch & Communication Coach</p>
         </div>
-
-        {/* Context Audio Section */}
-        <div style={{ border: '1px solid #ddd', padding: '1.5rem', borderRadius: '8px' }}>
-          <h2 style={{ marginBottom: '1rem' }}>Context Audio</h2>
-          
-          <div style={{ marginBottom: '1rem' }}>
-            <input
-              type="file"
-              accept="audio/*"
-              onChange={(e) => {
-                const file = e.target.files?.[0]
-                if (file) handleFileUpload(file, 'context')
-              }}
-              disabled={uploading || recording}
-              style={{ marginBottom: '0.5rem' }}
-            />
-            <div>
-              {recording ? (
-                <button
-                  onClick={stopRecording}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    backgroundColor: '#dc3545',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Stop Recording
-                </button>
-              ) : (
-                <button
-                  onClick={() => startRecording('context')}
-                  disabled={uploading || recording}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    backgroundColor: '#28a745',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Record Audio
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div>
-            <h3 style={{ marginBottom: '0.5rem' }}>Past Context Sessions</h3>
-            {contextSessions.length === 0 ? (
-              <p style={{ color: '#666' }}>No context sessions yet</p>
-            ) : (
-              <ul style={{ listStyle: 'none' }}>
-                {contextSessions.map((session) => (
-                  <li
-                    key={session.id}
-                    onClick={() => setSelectedSession(session)}
-                    style={{
-                      padding: '0.5rem',
-                      marginBottom: '0.5rem',
-                      backgroundColor: selectedSession?.id === session.id ? '#e3f2fd' : '#f5f5f5',
-                      cursor: 'pointer',
-                      borderRadius: '4px'
-                    }}
-                  >
-                    {new Date(session.created_at).toLocaleString()}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+        <div className="flex items-center gap-4">
+          <span className="text-white text-sm">{user?.email}</span>
+          <button
+            onClick={handleSignOut}
+            className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg text-sm font-medium transition-colors"
+          >
+            Sign Out
+          </button>
         </div>
       </div>
 
-      {/* Selected Session Details */}
-      {selectedSession && (
-        <div style={{ border: '1px solid #ddd', padding: '1.5rem', borderRadius: '8px' }}>
-          <h2>Session Details</h2>
-          <p><strong>Type:</strong> {selectedSession.type}</p>
-          <p><strong>Created:</strong> {new Date(selectedSession.created_at).toLocaleString()}</p>
-          
-          {selectedSession.transcript && (
-            <div style={{ marginTop: '1rem' }}>
-              <h3>Transcript</h3>
-              <p style={{ whiteSpace: 'pre-wrap', backgroundColor: '#f5f5f5', padding: '1rem', borderRadius: '4px' }}>
-                {selectedSession.transcript}
-              </p>
-            </div>
-          )}
-
-          {selectedSession.analysis_json ? (
-            <div style={{ marginTop: '1rem' }}>
-              <h3>Analysis</h3>
-              <div style={{ backgroundColor: '#f5f5f5', padding: '1rem', borderRadius: '4px' }}>
-                <p><strong>Summary:</strong> {selectedSession.analysis_json.summary || 'N/A'}</p>
-                {selectedSession.analysis_json.strengths && (
-                  <div style={{ marginTop: '0.5rem' }}>
-                    <strong>Strengths:</strong>
-                    <ul>
-                      {selectedSession.analysis_json.strengths.map((s: string, i: number) => (
-                        <li key={i}>{s}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {selectedSession.analysis_json.improvements && (
-                  <div style={{ marginTop: '0.5rem' }}>
-                    <strong>Improvements:</strong>
-                    <ul>
-                      {selectedSession.analysis_json.improvements.map((s: string, i: number) => (
-                        <li key={i}>{s}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {selectedSession.analysis_json.suggestions && (
-                  <div style={{ marginTop: '0.5rem' }}>
-                    <strong>Suggestions:</strong>
-                    <ul>
-                      {selectedSession.analysis_json.suggestions.map((s: string, i: number) => (
-                        <li key={i}>{s}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : selectedSession.transcript ? (
-            <div style={{ marginTop: '1rem' }}>
-              <button
-                onClick={() => handleAnalyze(selectedSession.id)}
-                style={{
-                  padding: '0.5rem 1rem',
-                  backgroundColor: '#0070f3',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer'
-                }}
-              >
-                Analyze with AI
-              </button>
-            </div>
-          ) : (
-            <p style={{ marginTop: '1rem', color: '#666' }}>Transcript not available yet</p>
-          )}
+      {/* Main Card */}
+      <div className="max-w-6xl mx-auto bg-white rounded-2xl shadow-xl p-8">
+        {/* Pitch Section */}
+        <div className="mb-8">
+          <PitchSection
+            pitchTranscript={pitchTranscript}
+            onTranscriptChange={setPitchTranscript}
+            onTranscribe={handlePitchTranscribe}
+            isTranscribing={isTranscribing}
+          />
         </div>
-      )}
+
+        {/* Context Section */}
+        <div className="mb-8">
+          <ContextSection
+            contextFields={contextFields}
+            onContextChange={(fields) => setContextFields((prev) => ({ ...prev, ...fields }))}
+            onTranscribe={handleContextTranscribe}
+            isTranscribing={isTranscribing}
+          />
+        </div>
+
+        {/* Sessions + Analysis */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 pt-8 border-t border-gray-200">
+          <SessionsPanel
+            pitchSessions={pitchSessions}
+            contextSessions={contextSessions}
+            selectedSession={selectedSession}
+            onSelectSession={handleSelectSession}
+          />
+          <AnalysisPanel
+            session={selectedSession}
+            onAnalyze={handleAnalyze}
+            isAnalyzing={isAnalyzing}
+            pitchTranscript={pitchTranscript}
+          />
+        </div>
+
+        {/* Analyze Button for Current State */}
+        {pitchTranscript && !selectedSession && (
+          <div className="mt-8 pt-8 border-t border-gray-200">
+            <button
+              onClick={() => handleAnalyze()}
+              disabled={isAnalyzing || !pitchTranscript.trim()}
+              className="w-full px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {isAnalyzing ? (
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  Analyzing...
+                </>
+              ) : (
+                '✨ Analyze Current Pitch with AI'
+              )}
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
-

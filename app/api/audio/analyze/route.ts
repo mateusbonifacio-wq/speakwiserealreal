@@ -13,42 +13,80 @@ export async function POST(request: NextRequest) {
 
     // 2. Parse request body
     const body = await request.json()
-    const { audio_session_id } = body
+    const { audio_session_id, pitch_transcript, context } = body
 
-    if (!audio_session_id) {
-      return NextResponse.json({ error: 'audio_session_id is required' }, { status: 400 })
-    }
+    // Support both old format (audio_session_id) and new format (pitch_transcript + context)
+    let transcript: string
+    let sessionType: 'pitch' | 'context' = 'pitch'
 
-    // 3. Fetch the audio session
-    const audioSession = await getAudioSession(audio_session_id)
+    if (pitch_transcript) {
+      // New format: direct transcript and context
+      transcript = pitch_transcript
+    } else if (audio_session_id) {
+      // Old format: fetch from session
+      const audioSession = await getAudioSession(audio_session_id)
 
-    if (!audioSession) {
-      return NextResponse.json({ error: 'Audio session not found' }, { status: 404 })
-    }
+      if (!audioSession) {
+        return NextResponse.json({ error: 'Audio session not found' }, { status: 404 })
+      }
 
-    // 4. Verify ownership
-    if (audioSession.user_id !== user.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
-    }
+      // Verify ownership
+      if (audioSession.user_id !== user.id) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+      }
 
-    // 5. Check if transcript exists
-    if (!audioSession.transcript) {
+      if (!audioSession.transcript) {
+        return NextResponse.json(
+          { error: 'Transcript not available. Please transcribe the audio first.' },
+          { status: 400 }
+        )
+      }
+
+      transcript = audioSession.transcript
+      sessionType = audioSession.type as 'pitch' | 'context'
+    } else {
       return NextResponse.json(
-        { error: 'Transcript not available. Please transcribe the audio first.' },
+        { error: 'Either audio_session_id or pitch_transcript is required' },
         { status: 400 }
       )
     }
 
-    // 6. Analyze with Gemini
-    const analysisJson = await analyzeWithGemini(
-      audioSession.transcript,
-      audioSession.type as 'pitch' | 'context'
-    )
+    if (!transcript || transcript.trim().length === 0) {
+      return NextResponse.json(
+        { error: 'Transcript is required' },
+        { status: 400 }
+      )
+    }
 
-    // 7. Update audio session with analysis
-    await updateAudioSessionAnalysis(audioSession.id, analysisJson)
+    // 3. Build context string if provided
+    let contextString = ''
+    if (context) {
+      const contextParts: string[] = []
+      if (context.audience) contextParts.push(`Audience: ${context.audience}`)
+      if (context.goal) contextParts.push(`Goal: ${context.goal}`)
+      if (context.duration) contextParts.push(`Duration: ${context.duration}`)
+      if (context.scenario) contextParts.push(`Scenario: ${context.scenario}`)
+      if (context.english_level) contextParts.push(`English Level: ${context.english_level}`)
+      if (context.tone_style) contextParts.push(`Tone/Style: ${context.tone_style}`)
+      if (context.constraints) contextParts.push(`Constraints: ${context.constraints}`)
+      if (context.additional_notes) contextParts.push(`Additional Notes: ${context.additional_notes}`)
+      if (context.context_transcript) contextParts.push(`Context Transcript: ${context.context_transcript}`)
+      
+      if (contextParts.length > 0) {
+        contextString = '\n\nContext Information:\n' + contextParts.join('\n')
+      }
+    }
 
-    // 8. Return analysis
+    // 4. Analyze with Gemini (pass full transcript with context)
+    const fullTranscript = transcript + contextString
+    const analysisJson = await analyzeWithGemini(fullTranscript, sessionType)
+
+    // 5. If audio_session_id was provided, update the session
+    if (audio_session_id) {
+      await updateAudioSessionAnalysis(audio_session_id, analysisJson)
+    }
+
+    // 6. Return analysis
     return NextResponse.json({
       analysis_json: analysisJson,
     })
