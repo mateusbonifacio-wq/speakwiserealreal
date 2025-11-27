@@ -22,44 +22,85 @@ export async function transcribeWithElevenLabs(
   // Use FormData for multipart/form-data upload
   // In Node.js, we need to use form-data package
   const FormData = (await import('form-data')).default
-  const formData = new FormData()
   
-  // Append the audio file
-  // Note: Field name might be 'file' or 'audio' - adjust based on API response
-  formData.append('file', audioBuffer, {
-    filename: 'audio.mp3',
-    contentType: 'audio/mpeg',
-  })
-  
-  // Append optional parameters
-  // These parameter names match the Python SDK format
-  if (options.modelId) {
-    formData.append('model_id', options.modelId)
-  }
-  if (options.languageCode) {
-    formData.append('language_code', options.languageCode)
-  }
-  if (options.diarize !== undefined) {
-    formData.append('diarize', options.diarize.toString())
-  }
-  if (options.tagAudioEvents !== undefined) {
-    formData.append('tag_audio_events', options.tagAudioEvents.toString())
+  // Helper function to create FormData
+  const createFormData = () => {
+    const formData = new FormData()
+    // Try 'file' first, might need to be 'audio' based on API
+    formData.append('file', audioBuffer, {
+      filename: 'audio.mp3',
+      contentType: 'audio/mpeg',
+    })
+    
+    // Append optional parameters
+    if (options.modelId) {
+      formData.append('model_id', options.modelId)
+    }
+    if (options.languageCode) {
+      formData.append('language_code', options.languageCode)
+    }
+    if (options.diarize !== undefined) {
+      formData.append('diarize', options.diarize.toString())
+    }
+    if (options.tagAudioEvents !== undefined) {
+      formData.append('tag_audio_events', options.tagAudioEvents.toString())
+    }
+    return formData
   }
   
   // ElevenLabs Speech-to-Text API endpoint
-  // Try /v1/speech-to-text/convert first, may need to adjust to:
-  // - /v1/speech-to-text/transcribe
-  // - /v1/speech-to-text
-  // Check ElevenLabs REST API docs if this doesn't work
-  const response = await fetch('https://api.elevenlabs.io/v1/speech-to-text/convert', {
-    method: 'POST',
-    headers: {
-      'xi-api-key': apiKey,
-      ...(formData.getHeaders ? formData.getHeaders() : {}),
-    },
-    // @ts-ignore - form-data works with fetch in Node.js 18+
-    body: formData,
-  })
+  // Based on the Python SDK example, try these endpoints in order
+  const endpoints = [
+    'https://api.elevenlabs.io/v1/speech-to-text',
+    'https://api.elevenlabs.io/v1/speech-to-text/convert',
+  ]
+
+  let lastError: Error | null = null
+  
+  for (const endpoint of endpoints) {
+    try {
+      const formData = createFormData()
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'xi-api-key': apiKey,
+          ...(formData.getHeaders ? formData.getHeaders() : {}),
+        },
+        // @ts-ignore - form-data works with fetch in Node.js 18+
+        body: formData,
+      })
+
+      if (response.ok) {
+        // Success - process response
+        const contentType = response.headers.get('content-type')
+        if (contentType?.includes('application/json')) {
+          const data = await response.json()
+          return data.text || data.transcript || data.transcription || JSON.stringify(data)
+        } else {
+          return await response.text()
+        }
+      } else if (response.status !== 404) {
+        // If it's not 404, this might be the right endpoint but with wrong params
+        const errorText = await response.text()
+        lastError = new Error(`ElevenLabs API error: ${response.status} - ${errorText}`)
+        // Don't continue if it's a 400/401/403 - those are parameter/auth errors
+        if (response.status < 404) {
+          throw lastError
+        }
+      }
+      // If 404, try next endpoint
+      lastError = new Error(`Endpoint not found: ${endpoint}`)
+    } catch (error: any) {
+      lastError = error
+      // Continue to next endpoint only if it was a 404
+      if (error.message && !error.message.includes('404') && !error.message.includes('Not Found')) {
+        throw error
+      }
+    }
+  }
+
+  // If all endpoints failed with 404, provide helpful error
+  throw new Error(`ElevenLabs Speech-to-Text endpoint not found. Tried: ${endpoints.join(', ')}. Please check the ElevenLabs API documentation for the correct endpoint. The endpoint may have changed or your API key may not have access to Speech-to-Text features.`)
   
   if (!response.ok) {
     const errorText = await response.text()
