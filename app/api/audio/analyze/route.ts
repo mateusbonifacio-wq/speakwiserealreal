@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
 
     // 2. Parse request body
     const body = await request.json()
-    const { audio_session_id, pitch_transcript, context, project_id } = body
+    const { audio_session_id, pitch_transcript, context, project_id, attempt_number, previous_scores } = body
 
     // Support both old format (audio_session_id) and new format (pitch_transcript + context)
     let transcript: string
@@ -103,9 +103,14 @@ export async function POST(request: NextRequest) {
       contextString = '\n\nContext Information:\n' + contextParts.join('\n')
     }
 
-    // 4. Analyze with Gemini (pass full transcript with context)
-    const fullTranscript = transcript + contextString
-    const analysisJson = await analyzeWithGemini(fullTranscript, sessionType)
+    // 4. Analyze with Gemini (pass transcript, context object, attempt number, and previous scores)
+    const analysisJson = await analyzeWithGemini(
+      transcript,
+      sessionType,
+      combinedContext,
+      attempt_number,
+      previous_scores
+    )
 
     // 5. If audio_session_id was provided, update the session
     if (audio_session_id) {
