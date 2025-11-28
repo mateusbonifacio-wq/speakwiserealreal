@@ -142,29 +142,28 @@ export default function AnalysisPanel({
 
       {analysis && (
         <div className="space-y-4 pt-4 border-t border-gray-200">
-          {/* New format: Greeting */}
+          {/* 1️⃣ Greeting — highlighted speech bubble */}
           {analysis.greeting && (
-            <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
+            <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
               <p className="text-sm text-gray-800 leading-relaxed">{analysis.greeting}</p>
             </div>
           )}
 
-          {/* Quick Summary (new format) or Summary (old format) */}
-          {(analysis.quick_summary || analysis.summary) && (
+          {/* 2️⃣ Quick Summary — short 2-3 sentence paragraph */}
+          {analysis.quick_summary && (
             <div>
-              <h4 className="text-sm font-semibold text-gray-900 mb-2">Summary</h4>
-              <p className="text-sm text-gray-700 leading-relaxed">{analysis.quick_summary || analysis.summary}</p>
+              <h4 className="text-sm font-semibold text-gray-900 mb-2">Quick Summary</h4>
+              <p className="text-sm text-gray-700 leading-relaxed">{analysis.quick_summary}</p>
             </div>
           )}
 
-          {/* Scores - handle both new format (object with score/explanation) and old format (simple value) */}
-          {analysis.scores && (
+          {/* 3️⃣ Scores — display each score separately with explanation */}
+          {analysis.scores && Object.keys(analysis.scores).length > 0 && (
             <div>
               <h4 className="text-sm font-semibold text-gray-900 mb-2">Scores</h4>
               <div className="grid grid-cols-1 gap-2">
                 {Object.entries(analysis.scores).map(([key, value]: [string, any]) => {
-                  // New format: value is {score, explanation}
-                  // Old format: value is just a number
+                  // Handle both new format (object with score/explanation) and old format (simple value)
                   const scoreValue = typeof value === 'object' && value !== null && 'score' in value ? value.score : value
                   const explanation = typeof value === 'object' && value !== null && 'explanation' in value ? value.explanation : null
                   
@@ -184,23 +183,28 @@ export default function AnalysisPanel({
             </div>
           )}
 
-          {/* Score Comparison (new format) */}
-          {analysis.score_comparison && (
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <h4 className="text-xs font-semibold text-gray-900 mb-1">Progress</h4>
-              <p className="text-sm text-gray-700">{analysis.score_comparison}</p>
+          {/* 4️⃣ Summary section — score_comparison and context_check */}
+          {(analysis.score_comparison || analysis.context_check) && (
+            <div>
+              <h4 className="text-sm font-semibold text-gray-900 mb-2">Summary</h4>
+              <div className="max-h-[140px] overflow-auto space-y-2">
+                {analysis.score_comparison && (
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-xs font-semibold text-gray-900 mb-1">Progress</p>
+                    <p className="text-sm text-gray-700">{analysis.score_comparison}</p>
+                  </div>
+                )}
+                {analysis.context_check && (
+                  <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                    <p className="text-xs font-semibold text-gray-900 mb-1">Context</p>
+                    <p className="text-sm text-gray-700">{analysis.context_check}</p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
-          {/* Context Check (new format) */}
-          {analysis.context_check && (
-            <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
-              <h4 className="text-xs font-semibold text-gray-900 mb-1">Context Check</h4>
-              <p className="text-sm text-gray-700">{analysis.context_check}</p>
-            </div>
-          )}
-
-          {/* Emotional & Delivery Analysis (new format) */}
+          {/* Emotional & Delivery Analysis */}
           {analysis.emotional_delivery_analysis && (
             <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
               <h4 className="text-xs font-semibold text-gray-900 mb-1">Delivery Analysis</h4>
@@ -208,12 +212,12 @@ export default function AnalysisPanel({
             </div>
           )}
 
-          {/* What You Did Well (new format) or Strengths (old format) */}
-          {(analysis.what_you_did_well || analysis.strengths) && (analysis.what_you_did_well?.length > 0 || analysis.strengths?.length > 0) && (
+          {/* 5️⃣ Strengths — list from what_you_did_well */}
+          {analysis.what_you_did_well && Array.isArray(analysis.what_you_did_well) && analysis.what_you_did_well.length > 0 && (
             <div>
-              <h4 className="text-sm font-semibold text-gray-900 mb-2">What You Did Well</h4>
+              <h4 className="text-sm font-semibold text-gray-900 mb-2">Strengths</h4>
               <ul className="space-y-1">
-                {(analysis.what_you_did_well || analysis.strengths).map((item: string, i: number) => (
+                {analysis.what_you_did_well.map((item: string, i: number) => (
                   <li key={i} className="text-sm text-gray-700 flex items-start gap-2">
                     <span className="text-green-500 mt-1">✓</span>
                     <span>{item}</span>
@@ -223,12 +227,12 @@ export default function AnalysisPanel({
             </div>
           )}
 
-          {/* What to Improve (new format) or Improvements (old format) */}
-          {(analysis.what_to_improve || analysis.improvements) && (analysis.what_to_improve?.length > 0 || analysis.improvements?.length > 0) && (
+          {/* 6️⃣ Improvements — list from what_to_improve */}
+          {analysis.what_to_improve && Array.isArray(analysis.what_to_improve) && analysis.what_to_improve.length > 0 && (
             <div>
-              <h4 className="text-sm font-semibold text-gray-900 mb-2">What to Improve</h4>
+              <h4 className="text-sm font-semibold text-gray-900 mb-2">Improvements</h4>
               <ul className="space-y-1">
-                {(analysis.what_to_improve || analysis.improvements).map((item: string, i: number) => (
+                {analysis.what_to_improve.map((item: string, i: number) => (
                   <li key={i} className="text-sm text-gray-700 flex items-start gap-2">
                     <span className="text-orange-500 mt-1">→</span>
                     <span>{item}</span>
@@ -238,22 +242,7 @@ export default function AnalysisPanel({
             </div>
           )}
 
-          {/* Suggestions (old format only) */}
-          {analysis.suggestions && analysis.suggestions.length > 0 && (
-            <div>
-              <h4 className="text-sm font-semibold text-gray-900 mb-2">Suggestions</h4>
-              <ul className="space-y-1">
-                {analysis.suggestions.map((suggestion: string, i: number) => (
-                  <li key={i} className="text-sm text-gray-700 flex items-start gap-2">
-                    <span className="text-indigo-500 mt-1">💡</span>
-                    <span>{suggestion}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Improved Pitch - Collapsible */}
+          {/* 7️⃣ Improved Pitch — collapsible textbox for easy copy */}
           {analysis.improved_pitch && (
             <CollapsibleSection title="Improved Pitch">
               <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
@@ -262,35 +251,38 @@ export default function AnalysisPanel({
             </CollapsibleSection>
           )}
 
-          {/* Alternative Openings - Collapsible */}
-          {(analysis.alternative_openings || analysis.opening_options) && (analysis.alternative_openings?.length > 0 || analysis.opening_options?.length > 0) && (
-            <CollapsibleSection title="Alternative Openings">
+          {/* 8️⃣ Alternative Openings — bullet list */}
+          {analysis.alternative_openings && Array.isArray(analysis.alternative_openings) && analysis.alternative_openings.length > 0 && (
+            <div>
+              <h4 className="text-sm font-semibold text-gray-900 mb-2">Alternative Openings</h4>
               <ul className="space-y-2">
-                {(analysis.alternative_openings || analysis.opening_options).map((option: string, i: number) => (
+                {analysis.alternative_openings.map((option: string, i: number) => (
                   <li key={i} className="text-sm text-gray-700 p-2 bg-gray-50 rounded border border-gray-200">
                     {option}
                   </li>
                 ))}
               </ul>
-            </CollapsibleSection>
+            </div>
           )}
 
-          {/* Alternative Closings - Collapsible */}
-          {(analysis.alternative_closings || analysis.closing_options) && (analysis.alternative_closings?.length > 0 || analysis.closing_options?.length > 0) && (
-            <CollapsibleSection title="Alternative Closings">
+          {/* 9️⃣ Alternative Closings — bullet list */}
+          {analysis.alternative_closings && Array.isArray(analysis.alternative_closings) && analysis.alternative_closings.length > 0 && (
+            <div>
+              <h4 className="text-sm font-semibold text-gray-900 mb-2">Alternative Closings</h4>
               <ul className="space-y-2">
-                {(analysis.alternative_closings || analysis.closing_options).map((option: string, i: number) => (
+                {analysis.alternative_closings.map((option: string, i: number) => (
                   <li key={i} className="text-sm text-gray-700 p-2 bg-gray-50 rounded border border-gray-200">
                     {option}
                   </li>
                 ))}
               </ul>
-            </CollapsibleSection>
+            </div>
           )}
 
-          {/* Delivery Tips - Collapsible */}
-          {analysis.delivery_tips && analysis.delivery_tips.length > 0 && (
-            <CollapsibleSection title="Delivery Tips">
+          {/* 🔟 Delivery Tips — bullet list */}
+          {analysis.delivery_tips && Array.isArray(analysis.delivery_tips) && analysis.delivery_tips.length > 0 && (
+            <div>
+              <h4 className="text-sm font-semibold text-gray-900 mb-2">Delivery Tips</h4>
               <ul className="space-y-1">
                 {analysis.delivery_tips.map((tip: string, i: number) => (
                   <li key={i} className="text-sm text-gray-700 flex items-start gap-2">
@@ -299,14 +291,14 @@ export default function AnalysisPanel({
                   </li>
                 ))}
               </ul>
-            </CollapsibleSection>
+            </div>
           )}
 
-          {/* Next Practice Exercise (new format) or Exercise (old format) */}
-          {(analysis.next_practice_exercise || analysis.exercise) && (
+          {/* 1️⃣1️⃣ Next Practice Exercise — highlighted card */}
+          {analysis.next_practice_exercise && (
             <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
               <h4 className="text-sm font-semibold text-gray-900 mb-2">Next Practice Exercise</h4>
-              <p className="text-sm text-gray-800">{analysis.next_practice_exercise || analysis.exercise}</p>
+              <p className="text-sm text-gray-800">{analysis.next_practice_exercise}</p>
             </div>
           )}
         </div>

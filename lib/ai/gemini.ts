@@ -129,7 +129,7 @@ Style:
       attemptInfo += `\n- Overall progress assessment`
     }
     
-    userPrompt = `Analyze this pitch transcript and provide feedback in JSON format using the following structure:
+    userPrompt = `Analyze this pitch transcript and provide feedback as a VALID JSON object (no markdown code blocks, no triple backticks, just pure JSON). Use this exact structure:
 
 {
   "greeting": "Short friendly greeting as SpeakWise Real, acknowledging their effort",
@@ -154,6 +154,8 @@ Style:
   "delivery_tips": ["4-7 bullet points", "Very concrete: where to slow down, which words to emphasize, when to pause, how to project confidence"],
   "next_practice_exercise": "ONE short exercise for the next attempt, e.g., 'Deliver just the first 45 seconds focusing on Problem + Solution'"
 }
+
+CRITICAL: Return ONLY valid JSON. Do NOT wrap in markdown code blocks. Do NOT use triple backticks. Start with { and end with }.
 
 Pitch Transcript:
 ${transcript}${contextInfo}${attemptInfo}`
@@ -265,21 +267,62 @@ ${transcript}`
       
       // Try to parse as JSON (Gemini might return JSON or text)
       try {
-        // Try to extract JSON from the response if it's wrapped in markdown code blocks
-        const jsonMatch = generatedText.match(/```json\n([\s\S]*?)\n```/) || 
-                          generatedText.match(/```\n([\s\S]*?)\n```/) ||
-                          [null, generatedText]
+        // Strip markdown code blocks aggressively
+        let cleanedText = generatedText.trim()
         
-        return JSON.parse(jsonMatch[1] || generatedText)
+        // Remove markdown code blocks (```json ... ``` or ``` ... ```)
+        cleanedText = cleanedText.replace(/^```json\s*/i, '')
+        cleanedText = cleanedText.replace(/^```\s*/, '')
+        cleanedText = cleanedText.replace(/\s*```$/g, '')
+        
+        // Find JSON object boundaries (first { to last })
+        const firstBrace = cleanedText.indexOf('{')
+        const lastBrace = cleanedText.lastIndexOf('}')
+        
+        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+          cleanedText = cleanedText.substring(firstBrace, lastBrace + 1)
+        }
+        
+        // Parse the cleaned JSON
+        const parsed = JSON.parse(cleanedText)
+        
+        // Validate structure for pitch type
+        if (type === 'pitch' && parsed) {
+          // Ensure all required fields exist with proper types
+          if (!parsed.greeting) parsed.greeting = ''
+          if (!parsed.quick_summary) parsed.quick_summary = ''
+          if (!parsed.scores) parsed.scores = {}
+          if (!parsed.score_comparison) parsed.score_comparison = ''
+          if (!parsed.context_check) parsed.context_check = ''
+          if (!parsed.emotional_delivery_analysis) parsed.emotional_delivery_analysis = ''
+          if (!parsed.what_you_did_well) parsed.what_you_did_well = []
+          if (!parsed.what_to_improve) parsed.what_to_improve = []
+          if (!parsed.improved_pitch) parsed.improved_pitch = ''
+          if (!parsed.alternative_openings) parsed.alternative_openings = []
+          if (!parsed.alternative_closings) parsed.alternative_closings = []
+          if (!parsed.delivery_tips) parsed.delivery_tips = []
+          if (!parsed.next_practice_exercise) parsed.next_practice_exercise = ''
+        }
+        
+        return parsed
       } catch (parseError) {
-        // If parsing fails, return as structured object
+        console.error('[Gemini] JSON parse error:', parseError)
+        // If parsing fails, return as structured object with error indication
         return {
-          summary: generatedText,
-          strengths: [],
-          improvements: [],
-          suggestions: [],
-          ...(type === 'pitch' ? { improved_pitch: '' } : {}),
-          raw_response: generatedText,
+          greeting: 'Hello! I analyzed your pitch, but encountered a formatting issue.',
+          quick_summary: 'Please try analyzing again.',
+          scores: {},
+          score_comparison: '',
+          context_check: '',
+          emotional_delivery_analysis: '',
+          what_you_did_well: [],
+          what_to_improve: ['The analysis response could not be parsed. Please try again.'],
+          improved_pitch: '',
+          alternative_openings: [],
+          alternative_closings: [],
+          delivery_tips: [],
+          next_practice_exercise: '',
+          _parse_error: true,
         }
       }
     } catch (error: any) {
