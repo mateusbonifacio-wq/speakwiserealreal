@@ -45,51 +45,64 @@ ${transcript}`
     // Use the official Google Generative AI SDK
     const genAI = new GoogleGenerativeAI(apiKey)
     
-    // Use gemini-pro model (the one that worked in the previous version)
-    // The SDK handles the API version automatically
-    const model = genAI.getGenerativeModel({ 
-      model: 'gemini-pro',
-    })
+    // Try models in order - use newer models first as they're more likely to work
+    const models = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']
     
     // Combine system prompt and user prompt into a single message
-    // This is the format that worked in the previous version
     const fullPrompt = `${systemPrompt}\n\n${userPrompt}`
     
-    console.log('[Gemini] Using model: gemini-pro')
-    console.log('[Gemini] Prompt length:', fullPrompt.length)
+    let lastError: Error | null = null
     
-    const result = await model.generateContent(fullPrompt)
-    const response = await result.response
-    const generatedText = response.text()
-    
-    if (!generatedText) {
-      throw new Error('No response from Gemini API')
-    }
-    
-    console.log('[Gemini] Response received, length:', generatedText.length)
-    
-    // Try to parse as JSON (Gemini might return JSON or text)
-    try {
-      // Try to extract JSON from the response if it's wrapped in markdown code blocks
-      const jsonMatch = generatedText.match(/```json\n([\s\S]*?)\n```/) || 
-                        generatedText.match(/```\n([\s\S]*?)\n```/) ||
-                        [null, generatedText]
-      
-      const parsed = JSON.parse(jsonMatch[1] || generatedText)
-      console.log('[Gemini] Successfully parsed JSON response')
-      return parsed
-    } catch (parseError) {
-      // If parsing fails, return as structured object
-      console.log('[Gemini] Could not parse as JSON, returning structured object')
-      return {
-        summary: generatedText,
-        strengths: [],
-        improvements: [],
-        suggestions: [],
-        ...(type === 'pitch' ? { improved_pitch: '' } : {}),
-        raw_response: generatedText,
+    for (const modelName of models) {
+      try {
+        console.log(`[Gemini] Trying model: ${modelName}`)
+        const model = genAI.getGenerativeModel({ model: modelName })
+        
+        const result = await model.generateContent(fullPrompt)
+        const response = await result.response
+        const generatedText = response.text()
+        
+        if (!generatedText) {
+          throw new Error('No response from Gemini API')
+        }
+        
+        console.log(`[Gemini] Success with model: ${modelName}, response length: ${generatedText.length}`)
+        
+        // Try to parse as JSON (Gemini might return JSON or text)
+        try {
+          // Try to extract JSON from the response if it's wrapped in markdown code blocks
+          const jsonMatch = generatedText.match(/```json\n([\s\S]*?)\n```/) || 
+                            generatedText.match(/```\n([\s\S]*?)\n```/) ||
+                            [null, generatedText]
+          
+          const parsed = JSON.parse(jsonMatch[1] || generatedText)
+          console.log('[Gemini] Successfully parsed JSON response')
+          return parsed
+        } catch (parseError) {
+          // If parsing fails, return as structured object
+          console.log('[Gemini] Could not parse as JSON, returning structured object')
+          return {
+            summary: generatedText,
+            strengths: [],
+            improvements: [],
+            suggestions: [],
+            ...(type === 'pitch' ? { improved_pitch: '' } : {}),
+            raw_response: generatedText,
+          }
+        }
+      } catch (error: any) {
+        console.log(`[Gemini] Model ${modelName} failed:`, error.message)
+        lastError = error
+        // Continue to next model
       }
     }
+    
+    // If all models failed, throw the last error
+    if (lastError) {
+      throw lastError
+    }
+    
+    throw new Error('No Gemini models available')
   } catch (error: any) {
     console.error('[Gemini] Error details:', {
       message: error.message,
