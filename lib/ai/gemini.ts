@@ -40,86 +40,66 @@ ${transcript}`
   }
   
   // Use Google Gemini API (Generative AI)
-  // Use v1 API with gemini-1.5-flash (fast and reliable)
-  // If that fails, try gemini-1.5-pro on v1
-  // Models available on v1: gemini-1.5-flash, gemini-1.5-pro
-  const models = [
-    'gemini-1.5-flash',
-    'gemini-1.5-pro',
-  ]
+  // Use v1 API with gemini-1.5-flash (confirmed working model)
+  const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`
   
-  let lastError: Error | null = null
+  console.log('[Gemini] Using model: gemini-1.5-flash')
   
-  for (const model of models) {
-    const url = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`
-    
-    console.log(`[Gemini] Trying model: ${model}`)
-    
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              { text: `${systemPrompt}\n\n${userPrompt}` }
-            ]
-          }
-        ],
-        generationConfig: {
-          temperature: 0.7,
-          topK: 40,
-          topP: 0.95,
-          maxOutputTokens: 2048,
-        },
-      }),
-    })
-    
-    if (response.ok) {
-      const data = await response.json()
-      
-      // Extract the generated text
-      const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text
-      
-      if (!generatedText) {
-        throw new Error('No response from Gemini API')
-      }
-      
-      // Try to parse as JSON (Gemini might return JSON or text)
-      try {
-        // Try to extract JSON from the response if it's wrapped in markdown code blocks
-        const jsonMatch = generatedText.match(/```json\n([\s\S]*?)\n```/) || 
-                          generatedText.match(/```\n([\s\S]*?)\n```/) ||
-                          [null, generatedText]
-        
-        return JSON.parse(jsonMatch[1] || generatedText)
-      } catch (parseError) {
-        // If parsing fails, return as structured object
-        return {
-          summary: generatedText,
-          strengths: [],
-          improvements: [],
-          suggestions: [],
-          ...(type === 'pitch' ? { improved_pitch: '' } : {}),
-          raw_response: generatedText,
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      contents: [
+        {
+          parts: [
+            { text: `${systemPrompt}\n\n${userPrompt}` }
+          ]
         }
-      }
-    } else {
-      const errorText = await response.text()
-      lastError = new Error(`Google Gemini API error (${model}): ${response.status} - ${errorText}`)
-      console.log(`[Gemini] Model ${model} failed:`, lastError.message)
-      // Continue to next model
+      ],
+      generationConfig: {
+        temperature: 0.7,
+        topK: 40,
+        topP: 0.95,
+        maxOutputTokens: 2048,
+      },
+    }),
+  })
+  
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`Google Gemini API error: ${response.status} - ${errorText}`)
+  }
+  
+  const data = await response.json()
+  
+  // Extract the generated text
+  const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text
+  
+  if (!generatedText) {
+    throw new Error('No response from Gemini API')
+  }
+  
+  // Try to parse as JSON (Gemini might return JSON or text)
+  try {
+    // Try to extract JSON from the response if it's wrapped in markdown code blocks
+    const jsonMatch = generatedText.match(/```json\n([\s\S]*?)\n```/) || 
+                      generatedText.match(/```\n([\s\S]*?)\n```/) ||
+                      [null, generatedText]
+    
+    return JSON.parse(jsonMatch[1] || generatedText)
+  } catch (parseError) {
+    // If parsing fails, return as structured object
+    return {
+      summary: generatedText,
+      strengths: [],
+      improvements: [],
+      suggestions: [],
+      ...(type === 'pitch' ? { improved_pitch: '' } : {}),
+      raw_response: generatedText,
     }
   }
-  
-  // If all models failed, throw the last error
-  if (lastError) {
-    throw lastError
-  }
-  
-  throw new Error('No Gemini models available')
   
 }
 
