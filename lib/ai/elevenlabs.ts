@@ -31,7 +31,9 @@ export async function transcribeWithElevenLabs(
     // Convert Buffer to File/Blob for better compatibility
     // Determine MIME type from options or default to webm
     const mimeType = options.mimeType || 'audio/webm'
-    const blob = new Blob([audioBuffer], { type: mimeType })
+    // Convert Buffer to Uint8Array for Blob compatibility
+    const uint8Array = new Uint8Array(audioBuffer)
+    const blob = new Blob([uint8Array], { type: mimeType })
     const file = new File([blob], `audio.${mimeType.split('/')[1] || 'webm'}`, { type: mimeType })
 
     // Use null/undefined for languageCode to enable auto-detection, or use provided language
