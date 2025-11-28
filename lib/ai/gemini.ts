@@ -47,12 +47,12 @@ ${transcript}`
     // The SDK automatically handles the correct API version and model availability
     const genAI = new GoogleGenerativeAI(apiKey)
     
-    // Try models in order - the SDK will use the correct API version for each
+    // Try models in order - start with most recent and reliable models
+    // Skip gemini-pro as it's been deprecated
     const models = [
-      'gemini-2.0-flash-exp',  // Latest experimental
-      'gemini-1.5-flash',      // Fast and efficient
-      'gemini-1.5-pro',        // More powerful
-      'gemini-pro',            // Original (may work with SDK)
+      'gemini-1.5-flash',      // Fast and efficient, widely available
+      'gemini-1.5-pro',        // More powerful, widely available
+      'gemini-2.0-flash-exp',  // Latest experimental (if available)
     ]
     
     const fullPrompt = `${systemPrompt}\n\n${userPrompt}`
