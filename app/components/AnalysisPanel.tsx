@@ -1,5 +1,37 @@
 'use client'
 
+import { useState } from 'react'
+
+interface CollapsibleSectionProps {
+  title: string
+  children: React.ReactNode
+  defaultOpen?: boolean
+}
+
+function CollapsibleSection({ title, children, defaultOpen = false }: CollapsibleSectionProps) {
+  const [isOpen, setIsOpen] = useState(defaultOpen)
+
+  return (
+    <div className="border border-gray-200 rounded-lg overflow-hidden">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 flex items-center justify-between transition-colors"
+      >
+        <h4 className="text-sm font-semibold text-gray-900">{title}</h4>
+        <svg
+          className={`w-5 h-5 text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {isOpen && <div className="p-4">{children}</div>}
+    </div>
+  )
+}
+
 interface AudioSession {
   id: string
   user_id: string
@@ -61,8 +93,6 @@ export default function AnalysisPanel({
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-gray-900">Session Details</h3>
-
       <div className="space-y-3">
         {displaySession.id !== 'current' && (
           <>
@@ -223,20 +253,18 @@ export default function AnalysisPanel({
             </div>
           )}
 
-          {/* Improved Pitch */}
+          {/* Improved Pitch - Collapsible */}
           {analysis.improved_pitch && (
-            <div>
-              <h4 className="text-sm font-semibold text-gray-900 mb-2">Improved Pitch</h4>
+            <CollapsibleSection title="Improved Pitch">
               <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
                 <p className="text-sm text-gray-800 whitespace-pre-wrap">{analysis.improved_pitch}</p>
               </div>
-            </div>
+            </CollapsibleSection>
           )}
 
-          {/* Alternative Openings (new format) or Opening Options (old format) */}
+          {/* Alternative Openings - Collapsible */}
           {(analysis.alternative_openings || analysis.opening_options) && (analysis.alternative_openings?.length > 0 || analysis.opening_options?.length > 0) && (
-            <div>
-              <h4 className="text-sm font-semibold text-gray-900 mb-2">Alternative Openings</h4>
+            <CollapsibleSection title="Alternative Openings">
               <ul className="space-y-2">
                 {(analysis.alternative_openings || analysis.opening_options).map((option: string, i: number) => (
                   <li key={i} className="text-sm text-gray-700 p-2 bg-gray-50 rounded border border-gray-200">
@@ -244,13 +272,12 @@ export default function AnalysisPanel({
                   </li>
                 ))}
               </ul>
-            </div>
+            </CollapsibleSection>
           )}
 
-          {/* Alternative Closings (new format) or Closing Options (old format) */}
+          {/* Alternative Closings - Collapsible */}
           {(analysis.alternative_closings || analysis.closing_options) && (analysis.alternative_closings?.length > 0 || analysis.closing_options?.length > 0) && (
-            <div>
-              <h4 className="text-sm font-semibold text-gray-900 mb-2">Alternative Closings</h4>
+            <CollapsibleSection title="Alternative Closings">
               <ul className="space-y-2">
                 {(analysis.alternative_closings || analysis.closing_options).map((option: string, i: number) => (
                   <li key={i} className="text-sm text-gray-700 p-2 bg-gray-50 rounded border border-gray-200">
@@ -258,13 +285,12 @@ export default function AnalysisPanel({
                   </li>
                 ))}
               </ul>
-            </div>
+            </CollapsibleSection>
           )}
 
-          {/* Delivery Tips */}
+          {/* Delivery Tips - Collapsible */}
           {analysis.delivery_tips && analysis.delivery_tips.length > 0 && (
-            <div>
-              <h4 className="text-sm font-semibold text-gray-900 mb-2">Delivery Tips</h4>
+            <CollapsibleSection title="Delivery Tips">
               <ul className="space-y-1">
                 {analysis.delivery_tips.map((tip: string, i: number) => (
                   <li key={i} className="text-sm text-gray-700 flex items-start gap-2">
@@ -273,7 +299,7 @@ export default function AnalysisPanel({
                   </li>
                 ))}
               </ul>
-            </div>
+            </CollapsibleSection>
           )}
 
           {/* Next Practice Exercise (new format) or Exercise (old format) */}

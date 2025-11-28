@@ -136,3 +136,35 @@ export async function updateAudioSessionAnalysis(
   }
 }
 
+/**
+ * Get previous analyzed pitch sessions for a project (excluding current session)
+ * Returns up to 3 most recent analyzed sessions, ordered by created_at ascending
+ */
+export async function getPreviousAnalyzedPitchSessions(
+  projectId: string,
+  excludeSessionId?: string,
+  limit: number = 3
+): Promise<AudioSession[]> {
+  const supabase = await createClient()
+  
+  let query = supabase
+    .from('audio_sessions')
+    .select('*')
+    .eq('project_id', projectId)
+    .eq('type', 'pitch')
+    .not('analysis_json', 'is', null)
+    .order('created_at', { ascending: true })
+  
+  if (excludeSessionId) {
+    query = query.neq('id', excludeSessionId)
+  }
+  
+  const { data, error } = await query.limit(limit)
+  
+  if (error) {
+    throw new Error(`Failed to get previous analyzed sessions: ${error.message}`)
+  }
+  
+  return data || []
+}
+

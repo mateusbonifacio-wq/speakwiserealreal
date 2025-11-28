@@ -16,6 +16,20 @@
  * @param previousScores - Optional scores from previous attempt
  * @returns Structured analysis JSON
  */
+interface PreviousAttempt {
+  attempt: number
+  created_at: string
+  scores?: {
+    clarity?: number
+    structure_flow?: number
+    persuasiveness?: number
+    storytelling?: number
+    conciseness?: number
+    fit_for_audience?: number
+    delivery_energy?: number
+  }
+}
+
 export async function analyzeWithGemini(
   transcript: string,
   type: 'pitch' | 'context',
@@ -30,15 +44,7 @@ export async function analyzeWithGemini(
     additional_notes?: string
   },
   attemptNumber?: number,
-  previousScores?: {
-    clarity?: number
-    structure_flow?: number
-    persuasiveness?: number
-    storytelling?: number
-    conciseness?: number
-    fit_for_audience?: number
-    delivery_energy?: number
-  }
+  previousAttempts?: PreviousAttempt[]
 ): Promise<any> {
   const apiKey = process.env.GOOGLE_AI_API_KEY
   
@@ -60,6 +66,15 @@ Your job:
 - Highlight what they did well and what to improve.
 - Show them how they are progressing across attempts.
 - Provide a stronger version of the pitch they can practice next.
+
+Progress Awareness:
+- You will receive an attempt_number indicating this is attempt #N for this project.
+- You may receive a previous_attempts array with earlier attempts and their scores.
+- When previous attempts are provided, explicitly comment on improvement/regression:
+  - Mention specific score changes (e.g., "Clarity improved from 5 → 7")
+  - Note areas that stayed the same (e.g., "Structure stayed at 6/10")
+  - Acknowledge progress and encourage continued iteration
+- Always reference their journey: "compared to last time...", "you've improved in...", etc.
 
 Style:
 - Write in clear, natural English.
@@ -87,21 +102,31 @@ Style:
       }
     }
     
-    // Build attempt and previous scores info
+    // Build attempt and previous attempts info
     let attemptInfo = ''
     if (attemptNumber) {
-      attemptInfo += `\n\nAttempt Number: ${attemptNumber}`
+      attemptInfo += `\n\nThis is Attempt #${attemptNumber} for this project.`
     }
     
-    if (previousScores) {
-      attemptInfo += `\n\nPrevious Scores (for comparison):`
-      if (previousScores.clarity !== undefined) attemptInfo += `\n- Clarity: ${previousScores.clarity}/10`
-      if (previousScores.structure_flow !== undefined) attemptInfo += `\n- Structure & Flow: ${previousScores.structure_flow}/10`
-      if (previousScores.persuasiveness !== undefined) attemptInfo += `\n- Persuasiveness: ${previousScores.persuasiveness}/10`
-      if (previousScores.storytelling !== undefined) attemptInfo += `\n- Storytelling: ${previousScores.storytelling}/10`
-      if (previousScores.conciseness !== undefined) attemptInfo += `\n- Conciseness: ${previousScores.conciseness}/10`
-      if (previousScores.fit_for_audience !== undefined) attemptInfo += `\n- Fit for Audience: ${previousScores.fit_for_audience}/10`
-      if (previousScores.delivery_energy !== undefined) attemptInfo += `\n- Delivery & Energy: ${previousScores.delivery_energy}/10`
+    if (previousAttempts && previousAttempts.length > 0) {
+      attemptInfo += `\n\nPrevious Attempts History:`
+      previousAttempts.forEach((prev, idx) => {
+        attemptInfo += `\n\nAttempt #${prev.attempt} (${new Date(prev.created_at).toLocaleDateString()}):`
+        if (prev.scores) {
+          if (prev.scores.clarity !== undefined) attemptInfo += `\n  - Clarity: ${prev.scores.clarity}/10`
+          if (prev.scores.structure_flow !== undefined) attemptInfo += `\n  - Structure & Flow: ${prev.scores.structure_flow}/10`
+          if (prev.scores.persuasiveness !== undefined) attemptInfo += `\n  - Persuasiveness: ${prev.scores.persuasiveness}/10`
+          if (prev.scores.storytelling !== undefined) attemptInfo += `\n  - Storytelling: ${prev.scores.storytelling}/10`
+          if (prev.scores.conciseness !== undefined) attemptInfo += `\n  - Conciseness: ${prev.scores.conciseness}/10`
+          if (prev.scores.fit_for_audience !== undefined) attemptInfo += `\n  - Fit for Audience: ${prev.scores.fit_for_audience}/10`
+          if (prev.scores.delivery_energy !== undefined) attemptInfo += `\n  - Delivery & Energy: ${prev.scores.delivery_energy}/10`
+        }
+      })
+      attemptInfo += `\n\nIMPORTANT: Compare this current attempt with the previous attempts above. In your score_comparison field, explicitly mention:`
+      attemptInfo += `\n- Which scores improved (e.g., "Clarity improved from 5 → 7")`
+      attemptInfo += `\n- Which scores stayed the same (e.g., "Structure stayed at 6/10")`
+      attemptInfo += `\n- Which scores decreased (if any)`
+      attemptInfo += `\n- Overall progress assessment`
     }
     
     userPrompt = `Analyze this pitch transcript and provide feedback in JSON format using the following structure:
@@ -118,7 +143,7 @@ Style:
     "fit_for_audience": { "score": 0-10, "explanation": "1 short sentence explaining why" },
     "delivery_energy": { "score": 0-10, "explanation": "1 short sentence explaining why (estimated from text)" }
   },
-  "score_comparison": "If previous_scores provided, briefly compare - mention where improved and where stayed same. Otherwise empty string.",
+  "score_comparison": "If previous_attempts provided, explicitly compare current scores with previous attempts. Mention specific improvements (e.g., 'Clarity improved from 5 → 7'), areas that stayed same, and overall progress. If this is attempt #1, use empty string.",
   "context_check": "Restate the context you're using. If something missing, state what you're assuming. Point out any mismatches.",
   "emotional_delivery_analysis": "Look for filler words, uncertainty words, repetition. Comment on confidence level, enthusiasm, pace and emphasis. Be specific like 'you used few filler words, which is great, but the language feels low-energy...'",
   "what_you_did_well": ["4-6 bullet points", "Be specific and positive", "e.g., clarity of idea, strong phrase, good problem statement"],

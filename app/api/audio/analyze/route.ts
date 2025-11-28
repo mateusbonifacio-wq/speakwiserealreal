@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/supabase/server'
-import { getAudioSession, updateAudioSessionAnalysis } from '@/lib/supabase/audio-sessions'
+import { getAudioSession, updateAudioSessionAnalysis, getPreviousAnalyzedPitchSessions } from '@/lib/supabase/audio-sessions'
 import { getProjectById } from '@/lib/supabase/projects'
 import { analyzeWithGemini } from '@/lib/ai/gemini'
 
@@ -103,24 +103,82 @@ export async function POST(request: NextRequest) {
       contextString = '\n\nContext Information:\n' + contextParts.join('\n')
     }
 
-    // 4. Analyze with Gemini (pass transcript, context object, attempt number, and previous scores)
+    // 4. Fetch previous analyzed pitch sessions for progress tracking (only for pitch type)
+    let attemptNumber: number | undefined = undefined
+    let previousAttempts: Array<{
+      attempt: number
+      created_at: string
+      scores?: {
+        clarity?: number
+        structure_flow?: number
+        persuasiveness?: number
+        storytelling?: number
+        conciseness?: number
+        fit_for_audience?: number
+        delivery_energy?: number
+      }
+    }> = []
+
+    if (sessionType === 'pitch' && projectIdForContext) {
+      // Get previous analyzed pitch sessions (excluding current if we have audio_session_id)
+      const previousSessions = await getPreviousAnalyzedPitchSessions(
+        projectIdForContext,
+        audio_session_id,
+        3 // Limit to last 3 attempts
+      )
+
+      // Calculate attempt number
+      attemptNumber = previousSessions.length + 1
+
+      // Build previous attempts array with scores
+      previousAttempts = previousSessions.map((session, index) => {
+        const scores = session.analysis_json?.scores
+        const extractedScores = scores ? {
+          clarity: typeof scores.clarity === 'object' && scores.clarity?.score !== undefined ? scores.clarity.score : (typeof scores.clarity === 'number' ? scores.clarity : undefined),
+          structure_flow: typeof scores.structure_flow === 'object' && scores.structure_flow?.score !== undefined ? scores.structure_flow.score : (typeof scores.structure_flow === 'number' ? scores.structure_flow : undefined),
+          persuasiveness: typeof scores.persuasiveness === 'object' && scores.persuasiveness?.score !== undefined ? scores.persuasiveness.score : (typeof scores.persuasiveness === 'number' ? scores.persuasiveness : undefined),
+          storytelling: typeof scores.storytelling === 'object' && scores.storytelling?.score !== undefined ? scores.storytelling.score : (typeof scores.storytelling === 'number' ? scores.storytelling : undefined),
+          conciseness: typeof scores.conciseness === 'object' && scores.conciseness?.score !== undefined ? scores.conciseness.score : (typeof scores.conciseness === 'number' ? scores.conciseness : undefined),
+          fit_for_audience: typeof scores.fit_for_audience === 'object' && scores.fit_for_audience?.score !== undefined ? scores.fit_for_audience.score : (typeof scores.fit_for_audience === 'number' ? scores.fit_for_audience : undefined),
+          delivery_energy: typeof scores.delivery_energy === 'object' && scores.delivery_energy?.score !== undefined ? scores.delivery_energy.score : (typeof scores.delivery_energy === 'number' ? scores.delivery_energy : undefined),
+        } : undefined
+
+        return {
+          attempt: index + 1,
+          created_at: session.created_at,
+          scores: extractedScores,
+        }
+      })
+    }
+
+    // Use provided attempt_number if available, otherwise use calculated one
+    const finalAttemptNumber = attempt_number || attemptNumber
+
+    // 5. Analyze with Gemini (pass transcript, context object, attempt number, and previous attempts)
     const analysisJson = await analyzeWithGemini(
       transcript,
       sessionType,
       combinedContext,
-      attempt_number,
-      previous_scores
+      finalAttemptNumber,
+      previousAttempts.length > 0 ? previousAttempts : undefined
     )
 
-    // 5. If audio_session_id was provided, update the session
+    // 6. Ensure analysis_json includes scores for future progress tracking
+    if (!analysisJson.scores) {
+      // If scores are missing, create a placeholder structure
+      analysisJson.scores = {}
+    }
+
+    // 7. If audio_session_id was provided, update the session
     if (audio_session_id) {
       await updateAudioSessionAnalysis(audio_session_id, analysisJson)
     }
 
-    // 6. Return analysis
+    // 8. Return analysis
     return NextResponse.json({
       analysis_json: analysisJson,
       combined_context: combinedContext,
+      attempt_number: finalAttemptNumber,
     })
   } catch (error: any) {
     console.error('Analysis error:', error)
