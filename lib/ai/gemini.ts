@@ -129,7 +129,9 @@ Style:
       attemptInfo += `\n- Overall progress assessment`
     }
     
-    userPrompt = `Analyze this pitch transcript and provide feedback as a VALID JSON object (no markdown code blocks, no triple backticks, just pure JSON). Use this exact structure:
+    userPrompt = `You MUST respond with ONLY a valid JSON object. No markdown, no code blocks, no explanations outside the JSON. Start your response with { and end with }.
+
+Return this exact JSON structure:
 
 {
   "greeting": "Short friendly greeting as SpeakWise Real, acknowledging their effort",
@@ -155,7 +157,7 @@ Style:
   "next_practice_exercise": "ONE short exercise for the next attempt, e.g., 'Deliver just the first 45 seconds focusing on Problem + Solution'"
 }
 
-CRITICAL: Return ONLY valid JSON. Do NOT wrap in markdown code blocks. Do NOT use triple backticks. Start with { and end with }.
+IMPORTANT: Your response must be valid JSON only. No markdown formatting. No triple backticks. Just the JSON object starting with { and ending with }.
 
 Pitch Transcript:
 ${transcript}${contextInfo}${attemptInfo}`
@@ -207,6 +209,7 @@ ${transcript}`
           generationConfig: {
             temperature: 0.7,
             maxOutputTokens: 4096, // Increased for detailed 11-section pitch analysis
+            responseMimeType: 'application/json', // Force JSON response format
           },
         }),
       })
@@ -264,6 +267,8 @@ ${transcript}`
       }
       
       console.log(`[Gemini] Success with model: ${modelName}`)
+      console.log(`[Gemini] Raw response length: ${generatedText.length} chars`)
+      console.log(`[Gemini] Raw response preview: ${generatedText.substring(0, 200)}...`)
       
       // Try to parse as JSON (Gemini might return JSON or text)
       try {
@@ -274,6 +279,7 @@ ${transcript}`
         cleanedText = cleanedText.replace(/^```json\s*/i, '')
         cleanedText = cleanedText.replace(/^```\s*/, '')
         cleanedText = cleanedText.replace(/\s*```$/g, '')
+        cleanedText = cleanedText.trim()
         
         // Find JSON object boundaries (first { to last })
         const firstBrace = cleanedText.indexOf('{')
@@ -281,7 +287,12 @@ ${transcript}`
         
         if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
           cleanedText = cleanedText.substring(firstBrace, lastBrace + 1)
+        } else if (firstBrace === -1 || lastBrace === -1) {
+          throw new Error(`No JSON object found. First brace: ${firstBrace}, Last brace: ${lastBrace}`)
         }
+        
+        console.log(`[Gemini] Cleaned JSON length: ${cleanedText.length} chars`)
+        console.log(`[Gemini] Cleaned JSON preview: ${cleanedText.substring(0, 300)}...`)
         
         // Parse the cleaned JSON
         const parsed = JSON.parse(cleanedText)
@@ -304,19 +315,43 @@ ${transcript}`
           if (!parsed.next_practice_exercise) parsed.next_practice_exercise = ''
         }
         
+        console.log(`[Gemini] Successfully parsed JSON with keys: ${Object.keys(parsed).join(', ')}`)
         return parsed
-      } catch (parseError) {
-        console.error('[Gemini] JSON parse error:', parseError)
-        // If parsing fails, return as structured object with error indication
+      } catch (parseError: any) {
+        console.error('[Gemini] JSON parse error:', parseError.message)
+        console.error('[Gemini] Generated text that failed to parse:', generatedText.substring(0, 500))
+        
+        // Try one more time with even more aggressive cleaning
+        try {
+          let retryText = generatedText
+          // Remove everything before first { and after last }
+          const firstBrace = retryText.indexOf('{')
+          const lastBrace = retryText.lastIndexOf('}')
+          if (firstBrace !== -1 && lastBrace !== -1) {
+            retryText = retryText.substring(firstBrace, lastBrace + 1)
+            // Remove any remaining markdown
+            retryText = retryText.replace(/```/g, '')
+            retryText = retryText.replace(/json/gi, '')
+            retryText = retryText.trim()
+            
+            const retryParsed = JSON.parse(retryText)
+            console.log('[Gemini] Successfully parsed on retry')
+            return retryParsed
+          }
+        } catch (retryError) {
+          console.error('[Gemini] Retry parse also failed:', retryError)
+        }
+        
+        // If parsing fails completely, return as structured object with error indication
         return {
           greeting: 'Hello! I analyzed your pitch, but encountered a formatting issue.',
-          quick_summary: 'Please try analyzing again.',
+          quick_summary: 'The AI response could not be properly formatted. This may be a temporary issue. Please try analyzing again.',
           scores: {},
           score_comparison: '',
           context_check: '',
           emotional_delivery_analysis: '',
           what_you_did_well: [],
-          what_to_improve: ['The analysis response could not be parsed. Please try again.'],
+          what_to_improve: ['The analysis response could not be parsed. Please try analyzing again.'],
           improved_pitch: '',
           alternative_openings: [],
           alternative_closings: [],
