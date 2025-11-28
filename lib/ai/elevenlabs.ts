@@ -8,9 +8,10 @@ export async function transcribeWithElevenLabs(
   audioBuffer: Buffer,
   options: {
     modelId?: string
-    languageCode?: string
+    languageCode?: string | null
     diarize?: boolean
     tagAudioEvents?: boolean
+    mimeType?: string
   } = {}
 ): Promise<string> {
   const apiKey = process.env.ELEVENLABS_API_KEY
@@ -27,20 +28,48 @@ export async function transcribeWithElevenLabs(
       apiKey: apiKey.trim(),
     })
 
-    // The SDK accepts Buffer, Blob, File, or ReadableStream
-    // In Node.js, we can pass the Buffer directly or convert to a stream
-    // Let's try passing the Buffer directly first
-    const response = await client.speechToText.convert({
-      file: audioBuffer as any, // SDK should accept Buffer
+    // Convert Buffer to File/Blob for better compatibility
+    // Determine MIME type from options or default to webm
+    const mimeType = options.mimeType || 'audio/webm'
+    const blob = new Blob([audioBuffer], { type: mimeType })
+    const file = new File([blob], `audio.${mimeType.split('/')[1] || 'webm'}`, { type: mimeType })
+
+    // Use null/undefined for languageCode to enable auto-detection, or use provided language
+    // Supported languages: 'eng', 'por' (Portuguese), 'spa', 'fra', 'deu', 'ita', 'pol', 'tur', 'rus', 'dut', 'cze', 'ara', 'chi', 'jpn', 'hun', 'kor'
+    // If languageCode is null or undefined, omit it to enable auto-detection
+    const languageCode = options.languageCode === null ? undefined : options.languageCode
+
+    console.log('[ElevenLabs] Starting transcription:', {
       modelId: options.modelId || 'scribe_v1',
-      languageCode: options.languageCode || 'eng',
+      languageCode: languageCode || 'auto-detect',
+      diarize: options.diarize !== false,
+      tagAudioEvents: options.tagAudioEvents !== false,
+      audioSize: audioBuffer.length,
+      mimeType,
+    })
+
+    // Build request object, only include languageCode if it's provided
+    const requestParams: any = {
+      file: file,
+      modelId: options.modelId || 'scribe_v1',
       diarize: options.diarize !== undefined ? options.diarize : true,
       tagAudioEvents: options.tagAudioEvents !== undefined ? options.tagAudioEvents : true,
-    })
+    }
+    
+    // Only add languageCode if it's explicitly provided (not null/undefined)
+    if (languageCode) {
+      requestParams.languageCode = languageCode
+    }
+
+    const response = await client.speechToText.convert(requestParams)
+
+    console.log('[ElevenLabs] Response type:', typeof response)
+    console.log('[ElevenLabs] Response keys:', response && typeof response === 'object' ? Object.keys(response) : 'N/A')
 
     // The response is a SpeechToTextChunkResponseModel or similar
     // Extract the text from the response
     if (typeof response === 'string') {
+      console.log('[ElevenLabs] Transcript (string):', response.substring(0, 100))
       return response
     }
     
@@ -48,18 +77,21 @@ export async function transcribeWithElevenLabs(
     if (response && typeof response === 'object') {
       // If it's a chunk response with text property
       if ('text' in response && typeof response.text === 'string') {
+        console.log('[ElevenLabs] Transcript (text property):', response.text.substring(0, 100))
         return response.text
       }
       // If it's a chunk response with words array
       if ('words' in response && Array.isArray(response.words)) {
-        return response.words
+        const transcript = response.words
           .map((word: any) => word.word || word.text || '')
           .filter(Boolean)
           .join(' ')
+        console.log('[ElevenLabs] Transcript (words array):', transcript.substring(0, 100))
+        return transcript
       }
       // If it's a multichannel response
       if ('transcripts' in response && Array.isArray(response.transcripts)) {
-        return response.transcripts
+        const transcript = response.transcripts
           .map((transcript: any) => {
             if (typeof transcript === 'string') return transcript
             if ('text' in transcript) return transcript.text
@@ -73,14 +105,26 @@ export async function transcribeWithElevenLabs(
           })
           .filter(Boolean)
           .join('\n')
+        console.log('[ElevenLabs] Transcript (transcripts array):', transcript.substring(0, 100))
+        return transcript
       }
+      
+      // Log the full response for debugging
+      console.log('[ElevenLabs] Full response:', JSON.stringify(response, null, 2).substring(0, 500))
     }
 
     // Fallback: stringify the response
-    return JSON.stringify(response)
+    const fallback = JSON.stringify(response)
+    console.warn('[ElevenLabs] Using fallback JSON response')
+    return fallback
   } catch (error: any) {
     // If SDK fails, provide detailed error
-    console.error('ElevenLabs SDK error:', error)
+    console.error('[ElevenLabs] SDK error details:', {
+      message: error.message,
+      status: error.status,
+      statusText: error.statusText,
+      response: error.response ? JSON.stringify(error.response).substring(0, 500) : 'N/A',
+    })
     throw new Error(`ElevenLabs API error: ${error.message || 'Unknown error'}`)
   }
 }
@@ -88,14 +132,16 @@ export async function transcribeWithElevenLabs(
 /**
  * Convenience wrapper with default settings matching the Python example
  * Uses scribe_v1 model with diarization and audio event tagging
+ * Auto-detects language for better accuracy
  */
-export async function transcribeAudio(audioBuffer: Buffer): Promise<string> {
+export async function transcribeAudio(audioBuffer: Buffer, mimeType: string = 'audio/webm'): Promise<string> {
   try {
     return await transcribeWithElevenLabs(audioBuffer, {
       modelId: 'scribe_v1',
-      languageCode: 'eng',
+      languageCode: null, // Auto-detect language
       diarize: true,
       tagAudioEvents: true,
+      mimeType: mimeType,
     })
   } catch (error) {
     console.error('ElevenLabs transcription error:', error)

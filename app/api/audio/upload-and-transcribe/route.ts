@@ -74,16 +74,23 @@ export async function POST(request: NextRequest) {
       .eq('id', audioSession.id)
 
     // 8. Transcribe with ElevenLabs using scribe_v1 model with diarization
+    // Use auto-detect language (null) for better accuracy
     let transcript: string
     try {
+      // Get MIME type from the file
+      const mimeType = audioFile.type || 'audio/webm'
+      
       transcript = await transcribeWithElevenLabs(audioBuffer, {
         modelId: 'scribe_v1',
-        languageCode: 'eng',
+        languageCode: null, // Auto-detect language (supports English, Portuguese, Spanish, etc.)
         diarize: true,
         tagAudioEvents: true,
+        mimeType: mimeType,
       })
+      
+      console.log('[Upload] Transcription successful, length:', transcript.length)
     } catch (transcribeError: any) {
-      console.error('Transcription error:', transcribeError)
+      console.error('[Upload] Transcription error:', transcribeError)
       // Still return success but with error in transcript
       transcript = `[Transcription error: ${transcribeError.message}]`
     }
