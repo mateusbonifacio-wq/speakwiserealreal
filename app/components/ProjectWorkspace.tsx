@@ -161,8 +161,11 @@ export default function ProjectWorkspace({ project, user }: ProjectWorkspaceProp
 
       const data = await response.json()
 
+      // Always reload sessions to get the latest data (including newly created sessions)
+      await loadSessions()
+
       if (sessionId) {
-        await loadSessions()
+        // If analyzing an existing session, select it
         const { data: refreshedSession } = await supabase
           .from('audio_sessions')
           .select('*')
@@ -171,7 +174,18 @@ export default function ProjectWorkspace({ project, user }: ProjectWorkspaceProp
         if (refreshedSession) {
           setSelectedSession(refreshedSession)
         }
+      } else if (data.session_id) {
+        // If a new session was created, select it
+        const { data: newSession } = await supabase
+          .from('audio_sessions')
+          .select('*')
+          .eq('id', data.session_id)
+          .single()
+        if (newSession) {
+          setSelectedSession(newSession)
+        }
       } else {
+        // Fallback: create temporary session object for display
         setSelectedSession({
           id: 'temp',
           user_id: user.id,

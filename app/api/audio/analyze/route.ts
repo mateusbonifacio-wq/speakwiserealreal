@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/supabase/server'
-import { getAudioSession, updateAudioSessionAnalysis, getPreviousAnalyzedPitchSessions } from '@/lib/supabase/audio-sessions'
+import { createClient } from '@/lib/supabase/server'
+import { getAudioSession, updateAudioSessionAnalysis, getPreviousAnalyzedPitchSessions, createAudioSession } from '@/lib/supabase/audio-sessions'
 import { getProjectById } from '@/lib/supabase/projects'
 import { analyzeWithGemini } from '@/lib/ai/gemini'
 
@@ -169,9 +170,37 @@ export async function POST(request: NextRequest) {
       analysisJson.scores = {}
     }
 
-    // 7. If audio_session_id was provided, update the session
+    // 7. Save analysis to a session
+    let savedSessionId: string | null = null
+    
     if (audio_session_id) {
+      // Update existing session
       await updateAudioSessionAnalysis(audio_session_id, analysisJson)
+      savedSessionId = audio_session_id
+    } else if (sessionType === 'pitch' && projectIdForContext) {
+      // Create a new session for direct transcript analysis (so it shows in progress)
+      // Use a placeholder audio path since we don't have an actual audio file
+      const newSession = await createAudioSession(
+        user.id,
+        'pitch',
+        'direct-transcript', // Placeholder path
+        projectIdForContext
+      )
+      // Update the new session with transcript and analysis
+      const supabase = await createClient()
+      const { error: updateError } = await supabase
+        .from('audio_sessions')
+        .update({
+          transcript: transcript,
+          analysis_json: analysisJson,
+        })
+        .eq('id', newSession.id)
+      
+      if (updateError) {
+        console.error('Failed to update new session:', updateError)
+        // Continue anyway - the session was created
+      }
+      savedSessionId = newSession.id
     }
 
     // 8. Return analysis
@@ -179,6 +208,7 @@ export async function POST(request: NextRequest) {
       analysis_json: analysisJson,
       combined_context: combinedContext,
       attempt_number: finalAttemptNumber,
+      session_id: savedSessionId, // Return the session ID so frontend can refresh
     })
   } catch (error: any) {
     console.error('Analysis error:', error)
