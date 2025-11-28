@@ -70,9 +70,11 @@ export async function transcribeWithElevenLabs(
 
     // The response is a SpeechToTextChunkResponseModel or similar
     // Extract the text from the response
+    // Use type assertion to help TypeScript understand the response can be a string
     if (typeof response === 'string') {
-      console.log('[ElevenLabs] Transcript (string):', response.substring(0, 100))
-      return response
+      const transcript = response as string
+      console.log('[ElevenLabs] Transcript (string):', transcript.substring(0, 100))
+      return transcript
     }
     
     // Handle different response types
