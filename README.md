@@ -188,7 +188,13 @@ Update `lib/ai/elevenlabs.ts` with the correct endpoint and parameters based on 
 
 ### Google Gemini API
 
-The code uses the `gemini-pro` model. You may want to update to `gemini-1.5-pro` or another model based on availability.
+The code uses the REST API directly with verified working models. The implementation includes automatic fallback across multiple models:
+- Primary: `gemini-2.5-flash` (latest and most capable)
+- Fallbacks: `gemini-2.5-flash-lite`, `gemini-2.0-flash`, `gemini-2.0-flash-001`, `gemini-2.0-flash-lite`, `gemini-2.0-flash-lite-001`
+
+All models are verified working via the REST API endpoint: `https://generativelanguage.googleapis.com/v1/models/{model}:generateContent`
+
+If you encounter 404 errors, the code will automatically try the next model in the fallback list.
 
 ### Audio Format
 
