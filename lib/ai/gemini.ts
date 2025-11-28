@@ -40,10 +40,15 @@ ${transcript}`
   }
   
   // Use Google Gemini API (Generative AI)
-  // Updated to use gemini-1.5-pro (gemini-pro is deprecated)
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`
+  // Try v1 API first (more stable), fallback to v1beta if needed
+  // Available models: gemini-1.5-flash, gemini-1.5-pro, gemini-pro
+  // For v1beta, use: gemini-1.5-flash or gemini-pro
+  // For v1, use: gemini-1.5-pro or gemini-1.5-flash
+  let url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`
   
-  const response = await fetch(url, {
+  // If v1 fails, we'll try v1beta with gemini-pro as fallback
+  
+  let response = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -64,6 +69,33 @@ ${transcript}`
       },
     }),
   })
+  
+  // If v1 fails with 404, try v1beta with gemini-pro
+  if (!response.ok && response.status === 404) {
+    console.log('[Gemini] v1 API failed, trying v1beta with gemini-pro')
+    url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`
+    response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              { text: `${systemPrompt}\n\n${userPrompt}` }
+            ]
+          }
+        ],
+        generationConfig: {
+          temperature: 0.7,
+          topK: 40,
+          topP: 0.95,
+          maxOutputTokens: 2048,
+        },
+      }),
+    })
+  }
   
   if (!response.ok) {
     const errorText = await response.text()
