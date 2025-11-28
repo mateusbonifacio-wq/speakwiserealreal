@@ -1,6 +1,8 @@
+import { GoogleGenerativeAI } from '@google/generative-ai'
+
 /**
  * Analyze transcript with Google Gemini API
- * Using the same approach as the working version from speakwisereal repo
+ * Using the official SDK which handles API version automatically
  * @param transcript - The transcribed text
  * @param type - 'pitch' or 'context'
  * @returns Structured analysis JSON
@@ -40,68 +42,71 @@ Transcript:
 ${transcript}`
   }
   
-  // Use REST API directly like the working version
-  // Use v1beta with gemini-pro (the model that worked in the previous version)
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`
-  
   try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              { text: `${systemPrompt}\n\n${userPrompt}` }
-            ]
+    // Use the official Google Generative AI SDK
+    // The SDK automatically handles the correct API version and model availability
+    const genAI = new GoogleGenerativeAI(apiKey)
+    
+    // Try models in order - the SDK will use the correct API version for each
+    const models = [
+      'gemini-2.0-flash-exp',  // Latest experimental
+      'gemini-1.5-flash',      // Fast and efficient
+      'gemini-1.5-pro',        // More powerful
+      'gemini-pro',            // Original (may work with SDK)
+    ]
+    
+    const fullPrompt = `${systemPrompt}\n\n${userPrompt}`
+    let lastError: Error | null = null
+    
+    for (const modelName of models) {
+      try {
+        console.log(`[Gemini] Trying model: ${modelName}`)
+        const model = genAI.getGenerativeModel({ model: modelName })
+        
+        const result = await model.generateContent(fullPrompt)
+        const response = await result.response
+        const generatedText = response.text()
+        
+        if (!generatedText) {
+          throw new Error('No response from Gemini API')
+        }
+        
+        console.log(`[Gemini] Success with model: ${modelName}`)
+        
+        // Try to parse as JSON (Gemini might return JSON or text)
+        try {
+          // Try to extract JSON from the response if it's wrapped in markdown code blocks
+          const jsonMatch = generatedText.match(/```json\n([\s\S]*?)\n```/) || 
+                            generatedText.match(/```\n([\s\S]*?)\n```/) ||
+                            [null, generatedText]
+          
+          return JSON.parse(jsonMatch[1] || generatedText)
+        } catch (parseError) {
+          // If parsing fails, return as structured object
+          return {
+            summary: generatedText,
+            strengths: [],
+            improvements: [],
+            suggestions: [],
+            ...(type === 'pitch' ? { improved_pitch: '' } : {}),
+            raw_response: generatedText,
           }
-        ],
-        generationConfig: {
-          temperature: 0.7,
-          topK: 40,
-          topP: 0.95,
-          maxOutputTokens: 2048,
-        },
-      }),
-    })
-    
-    if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(`Google Gemini API error: ${response.status} - ${errorText}`)
-    }
-    
-    const data = await response.json()
-    
-    // Extract the generated text
-    const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text
-    
-    if (!generatedText) {
-      throw new Error('No response from Gemini API')
-    }
-    
-    // Try to parse as JSON (Gemini might return JSON or text)
-    try {
-      // Try to extract JSON from the response if it's wrapped in markdown code blocks
-      const jsonMatch = generatedText.match(/```json\n([\s\S]*?)\n```/) || 
-                        generatedText.match(/```\n([\s\S]*?)\n```/) ||
-                        [null, generatedText]
-      
-      return JSON.parse(jsonMatch[1] || generatedText)
-    } catch (parseError) {
-      // If parsing fails, return as structured object
-      return {
-        summary: generatedText,
-        strengths: [],
-        improvements: [],
-        suggestions: [],
-        ...(type === 'pitch' ? { improved_pitch: '' } : {}),
-        raw_response: generatedText,
+        }
+      } catch (error: any) {
+        console.log(`[Gemini] Model ${modelName} failed:`, error.message?.substring(0, 100))
+        lastError = error
+        // Continue to next model
       }
     }
+    
+    // If all models failed, throw the last error
+    if (lastError) {
+      throw lastError
+    }
+    
+    throw new Error('No Gemini models available')
   } catch (error: any) {
-    console.error('Google Gemini API error:', error)
+    console.error('[Gemini] Error:', error)
     throw new Error(`Google Gemini API error: ${error.message || 'Unknown error'}`)
   }
 }
