@@ -1,3 +1,5 @@
+import { GoogleGenerativeAI } from '@google/generative-ai'
+
 /**
  * Analyze transcript with Google Gemini API
  * @param transcript - The transcribed text
@@ -39,67 +41,74 @@ Transcript:
 ${transcript}`
   }
   
-  // Use Google Gemini API (Generative AI)
-  // Use v1 API with gemini-1.5-flash (confirmed working model)
-  const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`
-  
-  console.log('[Gemini] Using model: gemini-1.5-flash')
-  
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      contents: [
-        {
-          parts: [
-            { text: `${systemPrompt}\n\n${userPrompt}` }
-          ]
-        }
-      ],
-      generationConfig: {
-        temperature: 0.7,
-        topK: 40,
-        topP: 0.95,
-        maxOutputTokens: 2048,
-      },
-    }),
-  })
-  
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`Google Gemini API error: ${response.status} - ${errorText}`)
-  }
-  
-  const data = await response.json()
-  
-  // Extract the generated text
-  const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text
-  
-  if (!generatedText) {
-    throw new Error('No response from Gemini API')
-  }
-  
-  // Try to parse as JSON (Gemini might return JSON or text)
   try {
-    // Try to extract JSON from the response if it's wrapped in markdown code blocks
-    const jsonMatch = generatedText.match(/```json\n([\s\S]*?)\n```/) || 
-                      generatedText.match(/```\n([\s\S]*?)\n```/) ||
-                      [null, generatedText]
+    // Use the official Google Generative AI SDK
+    const genAI = new GoogleGenerativeAI(apiKey)
     
-    return JSON.parse(jsonMatch[1] || generatedText)
-  } catch (parseError) {
-    // If parsing fails, return as structured object
-    return {
-      summary: generatedText,
-      strengths: [],
-      improvements: [],
-      suggestions: [],
-      ...(type === 'pitch' ? { improved_pitch: '' } : {}),
-      raw_response: generatedText,
+    // Try different models in order of preference
+    // The SDK will automatically use the correct API version
+    const models = [
+      'gemini-1.5-flash',
+      'gemini-1.5-pro',
+      'gemini-pro',
+    ]
+    
+    let lastError: Error | null = null
+    
+    for (const modelName of models) {
+      try {
+        console.log(`[Gemini] Trying model: ${modelName}`)
+        const model = genAI.getGenerativeModel({ model: modelName })
+        
+        const result = await model.generateContent([
+          { text: systemPrompt },
+          { text: userPrompt }
+        ])
+        
+        const response = await result.response
+        const generatedText = response.text()
+        
+        if (!generatedText) {
+          throw new Error('No response from Gemini API')
+        }
+        
+        console.log(`[Gemini] Success with model: ${modelName}`)
+        
+        // Try to parse as JSON (Gemini might return JSON or text)
+        try {
+          // Try to extract JSON from the response if it's wrapped in markdown code blocks
+          const jsonMatch = generatedText.match(/```json\n([\s\S]*?)\n```/) || 
+                            generatedText.match(/```\n([\s\S]*?)\n```/) ||
+                            [null, generatedText]
+          
+          return JSON.parse(jsonMatch[1] || generatedText)
+        } catch (parseError) {
+          // If parsing fails, return as structured object
+          return {
+            summary: generatedText,
+            strengths: [],
+            improvements: [],
+            suggestions: [],
+            ...(type === 'pitch' ? { improved_pitch: '' } : {}),
+            raw_response: generatedText,
+          }
+        }
+      } catch (error: any) {
+        console.log(`[Gemini] Model ${modelName} failed:`, error.message)
+        lastError = error
+        // Continue to next model
+      }
     }
+    
+    // If all models failed, throw the last error
+    if (lastError) {
+      throw new Error(`Google Gemini API error: ${lastError.message}`)
+    }
+    
+    throw new Error('No Gemini models available')
+  } catch (error: any) {
+    console.error('[Gemini] Error:', error)
+    throw new Error(`Google Gemini API error: ${error.message || 'Unknown error'}`)
   }
-  
 }
 
