@@ -112,55 +112,103 @@ export default function AnalysisPanel({
 
       {analysis && (
         <div className="space-y-4 pt-4 border-t border-gray-200">
-          {analysis.summary && (
-            <div>
-              <h4 className="text-sm font-semibold text-gray-900 mb-2">Summary</h4>
-              <p className="text-sm text-gray-700 leading-relaxed">{analysis.summary}</p>
+          {/* New format: Greeting */}
+          {analysis.greeting && (
+            <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
+              <p className="text-sm text-gray-800 leading-relaxed">{analysis.greeting}</p>
             </div>
           )}
 
+          {/* Quick Summary (new format) or Summary (old format) */}
+          {(analysis.quick_summary || analysis.summary) && (
+            <div>
+              <h4 className="text-sm font-semibold text-gray-900 mb-2">Summary</h4>
+              <p className="text-sm text-gray-700 leading-relaxed">{analysis.quick_summary || analysis.summary}</p>
+            </div>
+          )}
+
+          {/* Scores - handle both new format (object with score/explanation) and old format (simple value) */}
           {analysis.scores && (
             <div>
               <h4 className="text-sm font-semibold text-gray-900 mb-2">Scores</h4>
-              <div className="grid grid-cols-2 gap-2">
-                {Object.entries(analysis.scores).map(([key, value]: [string, any]) => (
-                  <div key={key} className="p-2 bg-gray-50 rounded">
-                    <p className="text-xs text-gray-500 capitalize">{key.replace(/_/g, ' ')}</p>
-                    <p className="text-sm font-semibold text-gray-900">{value}</p>
-                  </div>
-                ))}
+              <div className="grid grid-cols-1 gap-2">
+                {Object.entries(analysis.scores).map(([key, value]: [string, any]) => {
+                  // New format: value is {score, explanation}
+                  // Old format: value is just a number
+                  const scoreValue = typeof value === 'object' && value !== null && 'score' in value ? value.score : value
+                  const explanation = typeof value === 'object' && value !== null && 'explanation' in value ? value.explanation : null
+                  
+                  return (
+                    <div key={key} className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-xs font-medium text-gray-700 capitalize">{key.replace(/_/g, ' ')}</p>
+                        <p className="text-sm font-bold text-indigo-600">{scoreValue}/10</p>
+                      </div>
+                      {explanation && (
+                        <p className="text-xs text-gray-600 mt-1">{explanation}</p>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             </div>
           )}
 
-          {analysis.strengths && analysis.strengths.length > 0 && (
+          {/* Score Comparison (new format) */}
+          {analysis.score_comparison && (
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <h4 className="text-xs font-semibold text-gray-900 mb-1">Progress</h4>
+              <p className="text-sm text-gray-700">{analysis.score_comparison}</p>
+            </div>
+          )}
+
+          {/* Context Check (new format) */}
+          {analysis.context_check && (
+            <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+              <h4 className="text-xs font-semibold text-gray-900 mb-1">Context Check</h4>
+              <p className="text-sm text-gray-700">{analysis.context_check}</p>
+            </div>
+          )}
+
+          {/* Emotional & Delivery Analysis (new format) */}
+          {analysis.emotional_delivery_analysis && (
+            <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+              <h4 className="text-xs font-semibold text-gray-900 mb-1">Delivery Analysis</h4>
+              <p className="text-sm text-gray-700">{analysis.emotional_delivery_analysis}</p>
+            </div>
+          )}
+
+          {/* What You Did Well (new format) or Strengths (old format) */}
+          {(analysis.what_you_did_well || analysis.strengths) && (analysis.what_you_did_well?.length > 0 || analysis.strengths?.length > 0) && (
             <div>
-              <h4 className="text-sm font-semibold text-gray-900 mb-2">Strengths</h4>
+              <h4 className="text-sm font-semibold text-gray-900 mb-2">What You Did Well</h4>
               <ul className="space-y-1">
-                {analysis.strengths.map((strength: string, i: number) => (
+                {(analysis.what_you_did_well || analysis.strengths).map((item: string, i: number) => (
                   <li key={i} className="text-sm text-gray-700 flex items-start gap-2">
                     <span className="text-green-500 mt-1">✓</span>
-                    <span>{strength}</span>
+                    <span>{item}</span>
                   </li>
                 ))}
               </ul>
             </div>
           )}
 
-          {analysis.improvements && analysis.improvements.length > 0 && (
+          {/* What to Improve (new format) or Improvements (old format) */}
+          {(analysis.what_to_improve || analysis.improvements) && (analysis.what_to_improve?.length > 0 || analysis.improvements?.length > 0) && (
             <div>
-              <h4 className="text-sm font-semibold text-gray-900 mb-2">Improvements</h4>
+              <h4 className="text-sm font-semibold text-gray-900 mb-2">What to Improve</h4>
               <ul className="space-y-1">
-                {analysis.improvements.map((improvement: string, i: number) => (
+                {(analysis.what_to_improve || analysis.improvements).map((item: string, i: number) => (
                   <li key={i} className="text-sm text-gray-700 flex items-start gap-2">
                     <span className="text-orange-500 mt-1">→</span>
-                    <span>{improvement}</span>
+                    <span>{item}</span>
                   </li>
                 ))}
               </ul>
             </div>
           )}
 
+          {/* Suggestions (old format only) */}
           {analysis.suggestions && analysis.suggestions.length > 0 && (
             <div>
               <h4 className="text-sm font-semibold text-gray-900 mb-2">Suggestions</h4>
@@ -175,6 +223,7 @@ export default function AnalysisPanel({
             </div>
           )}
 
+          {/* Improved Pitch */}
           {analysis.improved_pitch && (
             <div>
               <h4 className="text-sm font-semibold text-gray-900 mb-2">Improved Pitch</h4>
@@ -184,28 +233,35 @@ export default function AnalysisPanel({
             </div>
           )}
 
-          {analysis.opening_options && analysis.opening_options.length > 0 && (
+          {/* Alternative Openings (new format) or Opening Options (old format) */}
+          {(analysis.alternative_openings || analysis.opening_options) && (analysis.alternative_openings?.length > 0 || analysis.opening_options?.length > 0) && (
             <div>
-              <h4 className="text-sm font-semibold text-gray-900 mb-2">Opening Options</h4>
-              <ul className="space-y-1">
-                {analysis.opening_options.map((option: string, i: number) => (
-                  <li key={i} className="text-sm text-gray-700">• {option}</li>
+              <h4 className="text-sm font-semibold text-gray-900 mb-2">Alternative Openings</h4>
+              <ul className="space-y-2">
+                {(analysis.alternative_openings || analysis.opening_options).map((option: string, i: number) => (
+                  <li key={i} className="text-sm text-gray-700 p-2 bg-gray-50 rounded border border-gray-200">
+                    {option}
+                  </li>
                 ))}
               </ul>
             </div>
           )}
 
-          {analysis.closing_options && analysis.closing_options.length > 0 && (
+          {/* Alternative Closings (new format) or Closing Options (old format) */}
+          {(analysis.alternative_closings || analysis.closing_options) && (analysis.alternative_closings?.length > 0 || analysis.closing_options?.length > 0) && (
             <div>
-              <h4 className="text-sm font-semibold text-gray-900 mb-2">Closing Options</h4>
-              <ul className="space-y-1">
-                {analysis.closing_options.map((option: string, i: number) => (
-                  <li key={i} className="text-sm text-gray-700">• {option}</li>
+              <h4 className="text-sm font-semibold text-gray-900 mb-2">Alternative Closings</h4>
+              <ul className="space-y-2">
+                {(analysis.alternative_closings || analysis.closing_options).map((option: string, i: number) => (
+                  <li key={i} className="text-sm text-gray-700 p-2 bg-gray-50 rounded border border-gray-200">
+                    {option}
+                  </li>
                 ))}
               </ul>
             </div>
           )}
 
+          {/* Delivery Tips */}
           {analysis.delivery_tips && analysis.delivery_tips.length > 0 && (
             <div>
               <h4 className="text-sm font-semibold text-gray-900 mb-2">Delivery Tips</h4>
@@ -220,10 +276,11 @@ export default function AnalysisPanel({
             </div>
           )}
 
-          {analysis.exercise && (
+          {/* Next Practice Exercise (new format) or Exercise (old format) */}
+          {(analysis.next_practice_exercise || analysis.exercise) && (
             <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <h4 className="text-sm font-semibold text-gray-900 mb-2">Exercise</h4>
-              <p className="text-sm text-gray-800">{analysis.exercise}</p>
+              <h4 className="text-sm font-semibold text-gray-900 mb-2">Next Practice Exercise</h4>
+              <p className="text-sm text-gray-800">{analysis.next_practice_exercise || analysis.exercise}</p>
             </div>
           )}
         </div>
