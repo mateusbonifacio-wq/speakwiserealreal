@@ -16,11 +16,11 @@ interface ProgressPanelProps {
 }
 
 export default function ProgressPanel({ pitchSessions }: ProgressPanelProps) {
-  // Filter to only analyzed pitch sessions, sorted by created_at ascending
+  // Filter to only analyzed pitch sessions, sorted by created_at descending (newest first)
   const analyzedSessions = pitchSessions
     .filter(session => session.analysis_json && session.type === 'pitch')
-    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-    .slice(-5) // Last 5 attempts
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .slice(0, 5) // First 5 attempts (most recent)
 
   if (analyzedSessions.length === 0) {
     return (
@@ -81,7 +81,8 @@ export default function ProgressPanel({ pitchSessions }: ProgressPanelProps) {
       <div className="space-y-4">
         {analyzedSessions.map((session, index) => {
           const scores = session.analysis_json?.scores
-          const previousScores = index > 0 ? analyzedSessions[index - 1].analysis_json?.scores : null
+          // Previous attempt is the next one in the array (since we're sorted newest first)
+          const previousScores = index < analyzedSessions.length - 1 ? analyzedSessions[index + 1].analysis_json?.scores : null
 
           const clarity = extractScore(scores, 'clarity')
           const structureFlow = extractScore(scores, 'structure_flow')
@@ -99,7 +100,7 @@ export default function ProgressPanel({ pitchSessions }: ProgressPanelProps) {
             <div key={session.id} className="border border-gray-200 rounded-lg p-3 bg-white">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-semibold text-gray-900">
-                  Attempt {analyzedSessions.length - index} – {formatDate(session.created_at)}
+                  Attempt {index + 1} – {formatDate(session.created_at)}
                 </span>
               </div>
 

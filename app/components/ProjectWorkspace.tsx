@@ -273,6 +273,19 @@ export default function ProjectWorkspace({ project, user }: ProjectWorkspaceProp
     }
   }
 
+  const handleStartNewAttempt = () => {
+    setSelectedSession(null)
+    setPitchTranscript('')
+  }
+
+  const handlePitchChange = (newTranscript: string) => {
+    setPitchTranscript(newTranscript)
+    // If user starts editing and transcript is different from selected session, clear selection
+    if (selectedSession && newTranscript !== selectedSession.transcript) {
+      setSelectedSession(null)
+    }
+  }
+
   return (
     <div className="max-w-6xl mx-auto">
       <div className="bg-white rounded-2xl shadow-xl p-8 space-y-8">
@@ -293,7 +306,7 @@ export default function ProjectWorkspace({ project, user }: ProjectWorkspaceProp
         <div>
           <PitchSection
             pitchTranscript={pitchTranscript}
-            onTranscriptChange={setPitchTranscript}
+            onTranscriptChange={handlePitchChange}
             onTranscribe={handlePitchTranscribe}
             isTranscribing={isTranscribing}
           />
@@ -310,8 +323,21 @@ export default function ProjectWorkspace({ project, user }: ProjectWorkspaceProp
           />
         </div>
 
-        {pitchTranscript && !selectedSession && (
-          <div className="pt-4 border-t border-gray-200">
+        {pitchTranscript && (
+          <div className="pt-4 border-t border-gray-200 space-y-3">
+            {selectedSession && (
+              <div className="flex items-center justify-between p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-sm text-yellow-800">
+                  Viewing a previous attempt. Edit the pitch above to create a new attempt.
+                </p>
+                <button
+                  onClick={handleStartNewAttempt}
+                  className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg font-medium text-sm transition-colors"
+                >
+                  Start New Attempt
+                </button>
+              </div>
+            )}
             <button
               onClick={() => handleAnalyze()}
               disabled={isAnalyzing || !pitchTranscript.trim()}
@@ -322,6 +348,8 @@ export default function ProjectWorkspace({ project, user }: ProjectWorkspaceProp
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
                   Analyzing...
                 </>
+              ) : selectedSession ? (
+                '✨ Analyze as New Attempt'
               ) : (
                 '✨ Analyze Current Pitch with AI'
               )}
