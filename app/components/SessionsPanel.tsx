@@ -22,14 +22,17 @@ export default function SessionsPanel({
   selectedSession,
   onSelectSession,
 }: SessionsPanelProps) {
-  // Calculate attempt numbers (oldest first = attempt 1, newest last = attempt N)
-  const sessionsWithAttempts = pitchSessions
+  // Calculate attempt numbers: Attempt 1 = first (oldest), Attempt N = last (newest)
+  // Sort oldest first to assign correct attempt numbers, then reverse to show newest first
+  const sortedOldestFirst = pitchSessions
     .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+  
+  const sessionsWithAttempts = sortedOldestFirst
     .map((session, index) => ({
       ...session,
-      attemptNumber: index + 1,
+      attemptNumber: index + 1, // Attempt 1 = oldest, Attempt N = newest
     }))
-    .reverse() // Show newest first
+    .reverse() // Show newest first in UI, but keep correct attempt numbers
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)

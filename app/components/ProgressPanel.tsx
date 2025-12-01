@@ -100,7 +100,7 @@ export default function ProgressPanel({ pitchSessions }: ProgressPanelProps) {
             <div key={session.id} className="border border-gray-200 rounded-lg p-3 bg-white">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-semibold text-gray-900">
-                  Attempt {index + 1} – {formatDate(session.created_at)}
+                  Attempt {analyzedSessions.length - index} – {formatDate(session.created_at)}
                 </span>
               </div>
 
