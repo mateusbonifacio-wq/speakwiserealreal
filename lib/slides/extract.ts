@@ -2,7 +2,7 @@
  * Extract slide content from PDF or PPTX files
  */
 
-import * as pdfParse from 'pdf-parse'
+const pdfParse = require('pdf-parse')
 
 export interface ExtractedSlide {
   index: number
