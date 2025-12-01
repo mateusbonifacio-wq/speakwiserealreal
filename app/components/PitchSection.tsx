@@ -32,9 +32,15 @@ export default function PitchSection({
       recorder.onstop = async () => {
         const blob = new Blob(chunks, { type: 'audio/webm' })
         const file = new File([blob], `pitch-${Date.now()}.webm`, { type: 'audio/webm' })
-        const transcript = await onTranscribe(file)
-        onTranscriptChange(transcript)
-        stream.getTracks().forEach(track => track.stop())
+        try {
+          const transcript = await onTranscribe(file)
+          onTranscriptChange(transcript)
+        } catch (error: any) {
+          console.error('Transcription error:', error)
+          // Error is already handled in handlePitchTranscribe, but ensure stream is stopped
+        } finally {
+          stream.getTracks().forEach(track => track.stop())
+        }
       }
 
       recorder.start()
@@ -57,8 +63,17 @@ export default function PitchSection({
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      const transcript = await onTranscribe(file)
-      onTranscriptChange(transcript)
+      try {
+        const transcript = await onTranscribe(file)
+        onTranscriptChange(transcript)
+      } catch (error: any) {
+        console.error('Transcription error:', error)
+        // Error is already handled in handlePitchTranscribe
+      }
+    }
+    // Reset file input so same file can be uploaded again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
     }
   }
 

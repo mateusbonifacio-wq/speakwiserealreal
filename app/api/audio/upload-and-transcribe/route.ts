@@ -80,6 +80,12 @@ export async function POST(request: NextRequest) {
       // Get MIME type from the file
       const mimeType = audioFile.type || 'audio/webm'
       
+      console.log('[Upload] Starting transcription with ElevenLabs...', {
+        fileSize: audioBuffer.length,
+        mimeType,
+        fileName: audioFile.name,
+      })
+      
       transcript = await transcribeWithElevenLabs(audioBuffer, {
         modelId: 'scribe_v1',
         languageCode: null, // Auto-detect language (supports English, Portuguese, Spanish, etc.)
@@ -88,11 +94,22 @@ export async function POST(request: NextRequest) {
         mimeType: mimeType,
       })
       
+      if (!transcript || transcript.trim().length === 0) {
+        throw new Error('Transcription returned empty result')
+      }
+      
       console.log('[Upload] Transcription successful, length:', transcript.length)
+      console.log('[Upload] Transcript preview:', transcript.substring(0, 100))
     } catch (transcribeError: any) {
       console.error('[Upload] Transcription error:', transcribeError)
-      // Still return success but with error in transcript
-      transcript = `[Transcription error: ${transcribeError.message}]`
+      // Return error response instead of embedding error in transcript
+      return NextResponse.json(
+        { 
+          error: `Transcription failed: ${transcribeError.message || 'Unknown error'}`,
+          details: transcribeError.message,
+        },
+        { status: 500 }
+      )
     }
 
     // 9. Update audio session with transcript

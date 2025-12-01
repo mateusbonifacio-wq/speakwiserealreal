@@ -129,11 +129,22 @@ export default function ProjectWorkspace({ project, user }: ProjectWorkspaceProp
 
       const data = await response.json()
       const transcript = data.transcript || ''
+      
+      // Check if transcript contains an error message
+      if (transcript.startsWith('[Transcription error:')) {
+        throw new Error(transcript.replace('[Transcription error: ', '').replace(']', ''))
+      }
+      
+      if (!transcript || transcript.trim().length === 0) {
+        throw new Error('Transcription returned empty. Please try again.')
+      }
+      
       setPitchTranscript(transcript)
       await loadSessions()
       return transcript
     } catch (error: any) {
-      alert(`Error: ${error.message}`)
+      console.error('Transcription error:', error)
+      alert(`Error transcribing audio: ${error.message || 'Unknown error'}`)
       throw error
     } finally {
       setIsTranscribing(false)
