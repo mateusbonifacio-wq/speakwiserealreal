@@ -58,6 +58,7 @@ export async function updateProjectContext(
     constraints?: string
     additional_notes?: string
     context_transcript?: string
+    transcription_language?: string
   }
 ): Promise<void> {
   const supabase = await createClient()

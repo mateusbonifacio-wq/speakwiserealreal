@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS public.projects (
     constraints TEXT,
     additional_notes TEXT,
     context_transcript TEXT,
+    transcription_language TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );

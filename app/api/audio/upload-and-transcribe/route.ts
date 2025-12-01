@@ -17,6 +17,7 @@ export async function POST(request: NextRequest) {
     const audioFile = formData.get('audio') as File
     const type = formData.get('type') as string
     const projectId = formData.get('project_id') as string | null
+    const languageCode = formData.get('language_code') as string | null
 
     if (!audioFile) {
       return NextResponse.json({ error: 'No audio file provided' }, { status: 400 })
@@ -88,45 +89,42 @@ export async function POST(request: NextRequest) {
         fileName: audioFile.name,
       })
       
-      // Try Portuguese first (most common), fallback to auto-detect
-      // Supported languages: 'eng' (English), 'por' (Portuguese), 'spa' (Spanish), 'fra' (French), etc.
-      // Explicit language code improves accuracy significantly
+      // Use language code from form data, or default to Portuguese
+      const selectedLanguage = languageCode && languageCode.trim() !== '' ? languageCode.trim() : 'por'
+      const finalLanguageCode = selectedLanguage === '' ? null : selectedLanguage
+      
+      console.log('[Upload] Using language code:', finalLanguageCode || 'auto-detect')
+      
       try {
-        // First try with Portuguese (most accurate for Portuguese speakers)
+        // Use the selected language (or auto-detect if empty)
         transcript = await transcribeWithElevenLabs(audioBuffer, {
           modelId: 'scribe_v1',
-          languageCode: 'por', // Explicit Portuguese for better accuracy
+          languageCode: finalLanguageCode, // Use selected language or auto-detect
           diarize: false, // Disable diarization for single speaker (better accuracy and faster)
           tagAudioEvents: false, // Disable audio event tagging (focus on speech, not sounds)
           mimeType: mimeType,
         })
-        detectedLanguage = 'por'
-        console.log('[Upload] Transcription with Portuguese language code successful')
-      } catch (portugueseError: any) {
-        console.warn('[Upload] Portuguese transcription failed, trying auto-detect:', portugueseError.message)
-        // Fallback to auto-detect if Portuguese fails
-        try {
-          transcript = await transcribeWithElevenLabs(audioBuffer, {
-            modelId: 'scribe_v1',
-            languageCode: null, // Auto-detect as fallback
-            diarize: false,
-            tagAudioEvents: false,
-            mimeType: mimeType,
-          })
-          detectedLanguage = 'auto'
-          console.log('[Upload] Transcription with auto-detect successful')
-        } catch (autoDetectError: any) {
-          // If both fail, try English as last resort
-          console.warn('[Upload] Auto-detect failed, trying English:', autoDetectError.message)
-          transcript = await transcribeWithElevenLabs(audioBuffer, {
-            modelId: 'scribe_v1',
-            languageCode: 'eng', // English as last resort
-            diarize: false,
-            tagAudioEvents: false,
-            mimeType: mimeType,
-          })
-          detectedLanguage = 'eng'
-          console.log('[Upload] Transcription with English language code successful')
+        detectedLanguage = finalLanguageCode || 'auto'
+        console.log('[Upload] Transcription successful with language:', detectedLanguage)
+      } catch (transcribeError: any) {
+        // If selected language fails, try auto-detect as fallback
+        if (finalLanguageCode && finalLanguageCode !== 'auto') {
+          console.warn('[Upload] Transcription with selected language failed, trying auto-detect:', transcribeError.message)
+          try {
+            transcript = await transcribeWithElevenLabs(audioBuffer, {
+              modelId: 'scribe_v1',
+              languageCode: null, // Auto-detect as fallback
+              diarize: false,
+              tagAudioEvents: false,
+              mimeType: mimeType,
+            })
+            detectedLanguage = 'auto'
+            console.log('[Upload] Transcription with auto-detect successful')
+          } catch (autoDetectError: any) {
+            throw autoDetectError // Re-throw if auto-detect also fails
+          }
+        } else {
+          throw transcribeError // Re-throw if auto-detect was already tried
         }
       }
       

@@ -12,6 +12,7 @@ interface ContextFields {
   constraints: string
   additional_notes: string
   context_transcript: string
+  transcription_language: string
 }
 
 interface ContextSectionProps {
@@ -147,6 +148,23 @@ export default function ContextSection({
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Idioma da Transcrição</label>
+          <select
+            value={contextFields.transcription_language || 'por'}
+            onChange={(e) => onContextChange({ transcription_language: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+          >
+            <option value="por">Português</option>
+            <option value="eng">English</option>
+            <option value="spa">Español</option>
+            <option value="fra">Français</option>
+            <option value="deu">Deutsch</option>
+            <option value="ita">Italiano</option>
+            <option value="">Auto-detect (Recomendado)</option>
+          </select>
+          <p className="text-xs text-gray-500 mt-1">Selecione o idioma que você vai falar no pitch</p>
+        </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Audience</label>
           <input

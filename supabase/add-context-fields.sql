@@ -6,7 +6,9 @@ ADD COLUMN IF NOT EXISTS english_level TEXT,
 ADD COLUMN IF NOT EXISTS tone_style TEXT,
 ADD COLUMN IF NOT EXISTS constraints TEXT,
 ADD COLUMN IF NOT EXISTS additional_notes TEXT,
-ADD COLUMN IF NOT EXISTS context_transcript TEXT;
+ADD COLUMN IF NOT EXISTS context_transcript TEXT,
+ADD COLUMN IF NOT EXISTS transcription_language TEXT;
 
 -- Note: default_audience, default_goal, default_duration, default_scenario already exist
+-- transcription_language: 'por' (Portuguese), 'eng' (English), 'spa' (Spanish), etc., or empty for auto-detect
 

@@ -46,6 +46,7 @@ export async function POST(request: NextRequest) {
       constraints: context.constraints || null,
       additional_notes: context.additional_notes || null,
       context_transcript: context.context_transcript || null,
+      transcription_language: context.transcription_language || null,
     })
 
     // 5. Return success

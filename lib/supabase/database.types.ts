@@ -42,6 +42,7 @@ export interface Database {
           constraints: string | null
           additional_notes: string | null
           context_transcript: string | null
+          transcription_language: string | null
           created_at: string
           updated_at: string
         }
@@ -60,6 +61,7 @@ export interface Database {
           constraints?: string | null
           additional_notes?: string | null
           context_transcript?: string | null
+          transcription_language?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -78,6 +80,7 @@ export interface Database {
           constraints?: string | null
           additional_notes?: string | null
           context_transcript?: string | null
+          transcription_language?: string | null
           created_at?: string
           updated_at?: string
         }

@@ -35,6 +35,7 @@ interface ContextFields {
   constraints: string
   additional_notes: string
   context_transcript: string
+  transcription_language: string
 }
 
 interface ProjectWorkspaceProps {
@@ -61,6 +62,7 @@ export default function ProjectWorkspace({ project, user }: ProjectWorkspaceProp
     constraints: project.constraints || '',
     additional_notes: project.additional_notes || '',
     context_transcript: project.context_transcript || '',
+    transcription_language: (project as any).transcription_language || 'por',
   })
 
   useEffect(() => {
@@ -87,6 +89,7 @@ export default function ProjectWorkspace({ project, user }: ProjectWorkspaceProp
           constraints: updatedProject.constraints || '',
           additional_notes: updatedProject.additional_notes || '',
           context_transcript: updatedProject.context_transcript || '',
+          transcription_language: (updatedProject as any).transcription_language || 'por',
         })
       }
     } catch (error) {
@@ -116,6 +119,8 @@ export default function ProjectWorkspace({ project, user }: ProjectWorkspaceProp
       formData.append('audio', audioFile)
       formData.append('type', 'pitch')
       formData.append('project_id', project.id)
+      // Pass transcription language from context
+      formData.append('language_code', contextFields.transcription_language || 'por')
 
       const response = await fetch('/api/audio/upload-and-transcribe', {
         method: 'POST',
