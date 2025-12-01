@@ -24,7 +24,7 @@ export async function extractSlidesFromPDF(pdfBuffer: Buffer): Promise<Extracted
     // In the future, we could use more sophisticated parsing
     const pages = data.text.split(/\f/) // Form feed character separates pages
     
-    return pages.map((pageText, index) => {
+    return pages.map((pageText: string, index: number) => {
       const lines = pageText.split('\n').filter(line => line.trim().length > 0)
       const title = lines[0]?.trim() || null
       const content = lines.slice(1).join('\n').trim() || null
