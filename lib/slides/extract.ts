@@ -34,7 +34,7 @@ export async function extractSlidesFromPDF(pdfBuffer: Buffer): Promise<Extracted
         title,
         content,
       }
-    }).filter(slide => slide.title || slide.content) // Only include slides with content
+    }).filter((slide: ExtractedSlide) => slide.title || slide.content) // Only include slides with content
   } catch (error: any) {
     throw new Error(`Failed to parse PDF: ${error.message}`)
   }
