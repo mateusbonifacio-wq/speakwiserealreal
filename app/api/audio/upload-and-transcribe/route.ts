@@ -132,11 +132,12 @@ export async function POST(request: NextRequest) {
       
       if (!transcript || transcript.trim().length === 0) {
         console.error('[Upload] Empty transcript received. This might indicate:')
-        console.error('  - Audio too short or silent')
-        console.error('  - Language not detected correctly')
-        console.error('  - Audio quality too poor')
-        console.error('  - API issue with ElevenLabs')
-        throw new Error('Transcription returned empty result. Please ensure you are speaking clearly and the audio is not too short.')
+        console.error('  - Audio too short (< 1 second) or silent')
+        console.error('  - No speech detected in audio (only background noise)')
+        console.error('  - Microphone was muted or not working properly')
+        console.error('  - Audio quality too poor for speech recognition')
+        console.error('  - Language mismatch (speaking different language than selected)')
+        throw new Error('Nenhuma fala foi detectada no áudio. Por favor, verifique: 1) O microfone está funcionando? 2) Você falou claramente? 3) O áudio tem pelo menos 1-2 segundos? 4) O idioma selecionado corresponde ao idioma que você está falando?')
       }
       
       console.log('[Upload] Transcription successful, length:', transcript.length)
