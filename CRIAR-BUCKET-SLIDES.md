@@ -2,7 +2,30 @@
 
 ## ⚠️ Erro: "Bucket 'project-decks' not found"
 
-Este erro significa que o bucket de storage ainda não foi criado no Supabase. Siga os passos abaixo:
+Este erro significa que o bucket de storage ainda não foi criado no Supabase. 
+
+## 🎯 Método Rápido: Script Automático
+
+Se você tem acesso ao terminal e às credenciais do Supabase:
+
+1. Execute o script:
+   ```bash
+   node create-slide-deck-bucket.js
+   ```
+
+2. O script pedirá:
+   - Supabase URL (ex: https://xxxxx.supabase.co)
+   - Service Role Key (encontre em Settings → API → service_role)
+
+3. O bucket será criado automaticamente!
+
+4. Depois, execute as políticas no SQL Editor:
+   - Abra `supabase/create-slide-deck-bucket.sql`
+   - Execute no Supabase SQL Editor
+
+## 📋 Método Manual: Passo a Passo
+
+Se preferir criar manualmente, siga os passos abaixo:
 
 ## 📋 Passo a Passo
 
