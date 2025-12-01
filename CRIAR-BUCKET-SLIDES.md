@@ -1,100 +1,125 @@
-# ⚠️ Erro: Bucket não encontrado
+# 🚀 Como Criar o Bucket para Slide Decks
 
-## Problema
+## ⚠️ Erro: "Bucket 'project-decks' not found"
 
-Você está recebendo o erro:
-```
-Bucket not found
-```
+Este erro significa que o bucket de storage ainda não foi criado no Supabase. Siga os passos abaixo:
 
-Isso significa que o bucket `project-decks` ainda não foi criado no Supabase Storage.
+## 📋 Passo a Passo
 
-## Solução Rápida
-
-### Passo 1: Acesse o Supabase Dashboard
+### 1. Acesse o Supabase Dashboard
 
 1. Vá para [https://supabase.com/dashboard](https://supabase.com/dashboard)
-2. Selecione seu projeto
-3. No menu lateral, clique em **"Storage"**
+2. Faça login na sua conta
+3. Selecione o seu projeto
 
-### Passo 2: Criar o Bucket
+### 2. Navegue até Storage
 
-1. Clique no botão **"Create bucket"** (ou "New bucket")
-2. Preencha:
-   - **Name**: `project-decks` (exatamente este nome, sem espaços)
-   - **Public bucket**: ❌ **DESMARQUE** (deixe privado)
-   - **File size limit**: 50 (ou o valor desejado em MB)
-   - **Allowed MIME types**: Deixe vazio (aceita todos) ou adicione:
-     - `application/pdf`
-     - `application/vnd.openxmlformats-officedocument.presentationml.presentation`
-3. Clique em **"Create bucket"**
+1. No menu lateral esquerdo, clique em **"Storage"** (ícone de pasta)
+2. Você verá a lista de buckets existentes
 
-### Passo 3: Configurar Políticas de Segurança
+### 3. Criar Novo Bucket
 
-Após criar o bucket, execute este SQL no **Supabase SQL Editor**:
+1. Clique no botão **"New bucket"** ou **"Create bucket"** (geralmente no canto superior direito)
+2. Uma janela/modal será aberta
 
-```sql
--- Storage policies for project-decks bucket
--- Users can upload files to their own project folders
-CREATE POLICY "Users can upload to own project decks"
-ON storage.objects
-FOR INSERT
-WITH CHECK (
-  bucket_id = 'project-decks' AND
-  (storage.foldername(name))[1] = auth.uid()::text
-);
+### 4. Configurar o Bucket
 
--- Users can read files from their own project folders
-CREATE POLICY "Users can read own project decks"
-ON storage.objects
-FOR SELECT
-USING (
-  bucket_id = 'project-decks' AND
-  (storage.foldername(name))[1] = auth.uid()::text
-);
+Preencha os campos:
 
--- Users can update files in their own project folders
-CREATE POLICY "Users can update own project decks"
-ON storage.objects
-FOR UPDATE
-USING (
-  bucket_id = 'project-decks' AND
-  (storage.foldername(name))[1] = auth.uid()::text
-);
+- **Name**: `project-decks`
+  - ⚠️ **IMPORTANTE**: Use exatamente este nome, sem espaços, sem maiúsculas extras
+  - Deve ser: `project-decks` (não `project_decks`, não `Project-Decks`, etc.)
 
--- Users can delete files from their own project folders
-CREATE POLICY "Users can delete own project decks"
-ON storage.objects
-FOR DELETE
-USING (
-  bucket_id = 'project-decks' AND
-  (storage.foldername(name))[1] = auth.uid()::text
-);
+- **Public bucket**: ❌ **DESMARQUE** (deixe desmarcado)
+  - O bucket deve ser **privado** para segurança
+
+- **File size limit**: `50` (ou o valor desejado em MB)
+  - Este é o tamanho máximo por arquivo
+
+- **Allowed MIME types**: (opcional)
+  - Você pode deixar vazio ou adicionar:
+    - `application/pdf`
+    - `application/vnd.openxmlformats-officedocument.presentationml.presentation`
+
+### 5. Criar o Bucket
+
+1. Clique em **"Create bucket"** ou **"Create"**
+2. O bucket deve aparecer na lista de buckets
+
+### 6. Configurar Políticas de Segurança (IMPORTANTE)
+
+Após criar o bucket, você precisa configurar as políticas de segurança:
+
+1. Vá para **SQL Editor** no menu lateral
+2. Abra o arquivo `supabase/create-slide-deck-bucket.sql` do projeto
+3. Copie todo o conteúdo SQL
+4. Cole no SQL Editor
+5. Clique em **"Run"** ou pressione `Ctrl+Enter` (Windows) / `Cmd+Enter` (Mac)
+
+Isso criará as políticas que permitem:
+- Usuários fazerem upload de arquivos para seus próprios projetos
+- Usuários lerem arquivos de seus próprios projetos
+- Usuários atualizarem/deletarem arquivos de seus próprios projetos
+
+## ✅ Verificação
+
+Para verificar se está tudo correto:
+
+1. **Bucket criado**: 
+   - Vá em Storage → você deve ver `project-decks` na lista
+
+2. **Políticas configuradas**:
+   - Vá em Storage → `project-decks` → Policies
+   - Você deve ver 4 políticas:
+     - "Users can upload to own project decks"
+     - "Users can read own project decks"
+     - "Users can update own project decks"
+     - "Users can delete own project decks"
+
+3. **Teste o upload**:
+   - Volte ao aplicativo
+   - Tente fazer upload de um slide deck novamente
+   - Deve funcionar agora! ✅
+
+## 🐛 Problemas Comuns
+
+### "Bucket already exists"
+- O bucket já foi criado anteriormente
+- Verifique se está na lista de buckets
+- Se estiver, pule para o passo 6 (configurar políticas)
+
+### "Permission denied" após criar o bucket
+- As políticas de segurança não foram configuradas
+- Execute o SQL do arquivo `supabase/create-slide-deck-bucket.sql`
+
+### Não consigo ver o botão "Create bucket"
+- Verifique se você tem permissões de administrador no projeto
+- Entre em contato com o administrador do projeto Supabase
+
+## 📸 Visual Guide (se disponível)
+
+Se você tiver acesso visual ao Supabase Dashboard:
+
+```
+Supabase Dashboard
+├── Menu Lateral
+│   ├── Table Editor
+│   ├── SQL Editor ← Use para políticas
+│   ├── Storage ← CLIQUE AQUI
+│   └── ...
+│
+Storage Page
+├── Lista de Buckets
+│   └── [project-decks] ← Deve aparecer aqui após criar
+│
+└── Botão "New bucket" ← Clique aqui para criar
 ```
 
-### Passo 4: Verificar
+## 🎯 Resumo Rápido
 
-1. Volte para **Storage** no dashboard
-2. Você deve ver o bucket `project-decks` listado
-3. Tente fazer upload de um slide deck novamente
+1. ✅ Supabase Dashboard → Storage
+2. ✅ "New bucket" → Nome: `project-decks` → Privado → Criar
+3. ✅ SQL Editor → Executar `supabase/create-slide-deck-bucket.sql`
+4. ✅ Testar upload no aplicativo
 
-## Verificação Rápida
-
-Para verificar se o bucket foi criado corretamente:
-
-1. **Storage** → Você deve ver `project-decks` na lista
-2. O bucket deve estar marcado como **Private** (não público)
-3. As políticas SQL devem estar aplicadas (verifique em **Storage** → **Policies**)
-
-## Próximos Passos
-
-Após criar o bucket e executar as políticas SQL:
-
-1. Recarregue a página do aplicativo
-2. Tente fazer upload de um slide deck novamente
-3. O erro deve desaparecer
-
-## Nota Importante
-
-O nome do bucket **DEVE** ser exatamente `project-decks` (minúsculas, com hífen). O código está configurado para usar este nome específico.
-
+Pronto! 🎉
