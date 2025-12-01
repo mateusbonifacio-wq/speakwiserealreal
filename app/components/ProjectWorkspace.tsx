@@ -46,26 +46,53 @@ export default function ProjectWorkspace({ project, user }: ProjectWorkspaceProp
   const supabase = createClient()
 
   const [pitchSessions, setPitchSessions] = useState<AudioSession[]>([])
-  const [contextSessions, setContextSessions] = useState<AudioSession[]>([])
   const [selectedSession, setSelectedSession] = useState<AudioSession | null>(null)
   const [isTranscribing, setIsTranscribing] = useState(false)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [isSavingContext, setIsSavingContext] = useState(false)
   const [pitchTranscript, setPitchTranscript] = useState('')
   const [contextFields, setContextFields] = useState<ContextFields>({
     audience: project.default_audience || '',
     goal: project.default_goal || '',
     duration: project.default_duration || '',
     scenario: project.default_scenario || '',
-    english_level: '',
-    tone_style: '',
-    constraints: '',
-    additional_notes: '',
-    context_transcript: '',
+    english_level: project.english_level || '',
+    tone_style: project.tone_style || '',
+    constraints: project.constraints || '',
+    additional_notes: project.additional_notes || '',
+    context_transcript: project.context_transcript || '',
   })
 
   useEffect(() => {
     loadSessions()
+    loadProjectContext()
   }, [project.id])
+
+  const loadProjectContext = async () => {
+    try {
+      const { data: updatedProject } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('id', project.id)
+        .single()
+
+      if (updatedProject) {
+        setContextFields({
+          audience: updatedProject.default_audience || '',
+          goal: updatedProject.default_goal || '',
+          duration: updatedProject.default_duration || '',
+          scenario: updatedProject.default_scenario || '',
+          english_level: updatedProject.english_level || '',
+          tone_style: updatedProject.tone_style || '',
+          constraints: updatedProject.constraints || '',
+          additional_notes: updatedProject.additional_notes || '',
+          context_transcript: updatedProject.context_transcript || '',
+        })
+      }
+    } catch (error) {
+      console.error('Error loading project context:', error)
+    }
+  }
 
   const loadSessions = async () => {
     try {
@@ -76,26 +103,18 @@ export default function ProjectWorkspace({ project, user }: ProjectWorkspaceProp
         .eq('type', 'pitch')
         .order('created_at', { ascending: false })
 
-      const { data: contextData } = await supabase
-        .from('audio_sessions')
-        .select('*')
-        .eq('project_id', project.id)
-        .eq('type', 'context')
-        .order('created_at', { ascending: false })
-
       setPitchSessions(pitchData || [])
-      setContextSessions(contextData || [])
     } catch (error) {
       console.error('Error loading sessions:', error)
     }
   }
 
-  const handleTranscribe = async (audioFile: File, type: 'pitch' | 'context'): Promise<string> => {
+  const handlePitchTranscribe = async (audioFile: File) => {
     setIsTranscribing(true)
     try {
       const formData = new FormData()
       formData.append('audio', audioFile)
-      formData.append('type', type)
+      formData.append('type', 'pitch')
       formData.append('project_id', project.id)
 
       const response = await fetch('/api/audio/upload-and-transcribe', {
@@ -109,8 +128,10 @@ export default function ProjectWorkspace({ project, user }: ProjectWorkspaceProp
       }
 
       const data = await response.json()
+      const transcript = data.transcript || ''
+      setPitchTranscript(transcript)
       await loadSessions()
-      return data.transcript || ''
+      return transcript
     } catch (error: any) {
       alert(`Error: ${error.message}`)
       throw error
@@ -119,22 +140,64 @@ export default function ProjectWorkspace({ project, user }: ProjectWorkspaceProp
     }
   }
 
-  const handlePitchTranscribe = async (audioFile: File) => {
-    const transcript = await handleTranscribe(audioFile, 'pitch')
-    setPitchTranscript(transcript)
-    return transcript
+  const handleContextTranscribe = async (audioFile: File) => {
+    setIsTranscribing(true)
+    try {
+      const formData = new FormData()
+      formData.append('audio', audioFile)
+      formData.append('project_id', project.id)
+
+      const response = await fetch('/api/project/transcribe-context', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Transcription failed')
+      }
+
+      const data = await response.json()
+      const transcript = data.transcript || ''
+      setContextFields((prev) => ({
+        ...prev,
+        context_transcript: transcript,
+      }))
+      // Reload project to get updated context
+      await loadProjectContext()
+      return transcript
+    } catch (error: any) {
+      alert(`Error: ${error.message}`)
+      throw error
+    } finally {
+      setIsTranscribing(false)
+    }
   }
 
-  const handleContextTranscribe = async (audioFile: File) => {
-    const transcript = await handleTranscribe(audioFile, 'context')
-    setContextFields((prev) => ({
-      ...prev,
-      context_transcript: transcript,
-      additional_notes: prev.additional_notes
-        ? `${prev.additional_notes}\n\n${transcript}`
-        : transcript,
-    }))
-    return transcript
+  const handleSaveContext = async () => {
+    setIsSavingContext(true)
+    try {
+      const response = await fetch('/api/project/update-context', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project_id: project.id,
+          context: contextFields,
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to save context')
+      }
+
+      await loadProjectContext()
+      alert('Context saved successfully!')
+    } catch (error: any) {
+      alert(`Error: ${error.message}`)
+    } finally {
+      setIsSavingContext(false)
+    }
   }
 
   const handleAnalyze = async (sessionId?: string) => {
@@ -144,7 +207,6 @@ export default function ProjectWorkspace({ project, user }: ProjectWorkspaceProp
         ? { audio_session_id: sessionId }
         : {
             pitch_transcript: pitchTranscript,
-            context: contextFields,
             project_id: project.id,
           }
 
@@ -206,16 +268,8 @@ export default function ProjectWorkspace({ project, user }: ProjectWorkspaceProp
 
   const handleSelectSession = (session: AudioSession) => {
     setSelectedSession(session)
-    if (session.type === 'pitch' && session.transcript) {
+    if (session.transcript) {
       setPitchTranscript(session.transcript)
-    } else if (session.type === 'context' && session.transcript) {
-      setContextFields((prev) => ({
-        ...prev,
-        context_transcript: session.transcript || '',
-        additional_notes: prev.additional_notes
-          ? `${prev.additional_notes}\n\n${session.transcript}`
-          : session.transcript || '',
-      }))
     }
   }
 
@@ -251,6 +305,8 @@ export default function ProjectWorkspace({ project, user }: ProjectWorkspaceProp
             onContextChange={(fields) => setContextFields((prev) => ({ ...prev, ...fields }))}
             onTranscribe={handleContextTranscribe}
             isTranscribing={isTranscribing}
+            onSave={handleSaveContext}
+            isSaving={isSavingContext}
           />
         </div>
 
@@ -279,7 +335,6 @@ export default function ProjectWorkspace({ project, user }: ProjectWorkspaceProp
           <div>
             <SessionsPanel
               pitchSessions={pitchSessions}
-              contextSessions={contextSessions}
               selectedSession={selectedSession}
               onSelectSession={handleSelectSession}
             />

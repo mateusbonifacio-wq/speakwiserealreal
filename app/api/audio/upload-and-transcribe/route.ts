@@ -22,8 +22,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No audio file provided' }, { status: 400 })
     }
 
-    if (type !== 'pitch' && type !== 'context') {
-      return NextResponse.json({ error: 'Invalid type. Must be "pitch" or "context"' }, { status: 400 })
+    if (type !== 'pitch') {
+      return NextResponse.json({ error: 'Invalid type. Must be "pitch". Use /api/project/transcribe-context for context.' }, { status: 400 })
     }
 
     const supabase = await createClient()
@@ -43,10 +43,10 @@ export async function POST(request: NextRequest) {
       validatedProjectId = project.id
     }
 
-    // 3. Create audio session record (with placeholder path)
+    // 3. Create audio session record (with placeholder path) - only for pitch
     const audioSession = await createAudioSession(
       user.id,
-      type as 'pitch' | 'context',
+      'pitch',
       'placeholder', // Will be updated after upload
       validatedProjectId
     )

@@ -19,6 +19,8 @@ interface ContextSectionProps {
   onContextChange: (fields: Partial<ContextFields>) => void
   onTranscribe: (audioFile: File) => Promise<string>
   isTranscribing: boolean
+  onSave: () => Promise<void>
+  isSaving?: boolean
 }
 
 export default function ContextSection({
@@ -26,6 +28,8 @@ export default function ContextSection({
   onContextChange,
   onTranscribe,
   isTranscribing,
+  onSave,
+  isSaving = false,
 }: ContextSectionProps) {
   const [recording, setRecording] = useState(false)
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null)
@@ -47,6 +51,8 @@ export default function ContextSection({
         const transcript = await onTranscribe(file)
         onContextChange({ context_transcript: transcript })
         stream.getTracks().forEach(track => track.stop())
+        // Auto-save after transcribing
+        await onSave()
       }
 
       recorder.start()
@@ -71,14 +77,25 @@ export default function ContextSection({
     if (file) {
       const transcript = await onTranscribe(file)
       onContextChange({ context_transcript: transcript })
+      // Auto-save after transcribing
+      await onSave()
     }
   }
 
   return (
     <div className="space-y-4 bg-gray-50 p-6 rounded-xl">
-      <div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-1">Optional Context</h2>
-        <p className="text-sm text-gray-600">Context helps the AI coach give more precise feedback.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-1">Project Context</h2>
+          <p className="text-sm text-gray-600">Set context once for this project. It will be used for all pitch attempts.</p>
+        </div>
+        <button
+          onClick={onSave}
+          disabled={isSaving}
+          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+        >
+          {isSaving ? 'Saving...' : 'Save Context'}
+        </button>
       </div>
 
       <div className="space-y-3">

@@ -15,16 +15,21 @@ export async function POST(request: NextRequest) {
 
     // 2. Parse request body
     const body = await request.json()
-    const { audio_session_id, pitch_transcript, context, project_id, attempt_number, previous_scores } = body
+    const { audio_session_id, pitch_transcript, project_id, attempt_number } = body
 
-    // Support both old format (audio_session_id) and new format (pitch_transcript + context)
+    // Support both old format (audio_session_id) and new format (pitch_transcript + project_id)
     let transcript: string
-    let sessionType: 'pitch' | 'context' = 'pitch'
     let projectIdForContext: string | null = project_id || null
 
     if (pitch_transcript) {
-      // New format: direct transcript and context
+      // New format: direct transcript
       transcript = pitch_transcript
+      if (!project_id) {
+        return NextResponse.json(
+          { error: 'project_id is required when providing pitch_transcript' },
+          { status: 400 }
+        )
+      }
     } else if (audio_session_id) {
       // Old format: fetch from session
       const audioSession = await getAudioSession(audio_session_id)
@@ -46,7 +51,6 @@ export async function POST(request: NextRequest) {
       }
 
       transcript = audioSession.transcript
-      sessionType = audioSession.type as 'pitch' | 'context'
       projectIdForContext = audioSession.project_id
     } else {
       return NextResponse.json(
@@ -62,25 +66,35 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 3. Fetch project defaults if provided
-    let projectContext = null
-    if (projectIdForContext) {
-      projectContext = await getProjectById(projectIdForContext)
-      if (!projectContext) {
-        return NextResponse.json({ error: 'Project not found' }, { status: 404 })
-      }
+    // 3. Fetch project context (required)
+    if (!projectIdForContext) {
+      return NextResponse.json(
+        { error: 'Project ID is required for analysis' },
+        { status: 400 }
+      )
     }
 
+    const projectContext = await getProjectById(projectIdForContext)
+    if (!projectContext) {
+      return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+    }
+
+    // Verify project ownership
+    if (projectContext.user_id !== user.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+    }
+
+    // Build context from project fields
     const combinedContext = {
-      audience: context?.audience || projectContext?.default_audience || '',
-      goal: context?.goal || projectContext?.default_goal || '',
-      duration: context?.duration || projectContext?.default_duration || '',
-      scenario: context?.scenario || projectContext?.default_scenario || '',
-      english_level: context?.english_level || '',
-      tone_style: context?.tone_style || '',
-      constraints: context?.constraints || '',
-      additional_notes: context?.additional_notes || '',
-      context_transcript: context?.context_transcript || '',
+      audience: projectContext.default_audience || '',
+      goal: projectContext.default_goal || '',
+      duration: projectContext.default_duration || '',
+      scenario: projectContext.default_scenario || '',
+      english_level: projectContext.english_level || '',
+      tone_style: projectContext.tone_style || '',
+      constraints: projectContext.constraints || '',
+      additional_notes: projectContext.additional_notes || '',
+      context_transcript: projectContext.context_transcript || '',
     }
 
     const contextParts: string[] = []
@@ -120,7 +134,8 @@ export async function POST(request: NextRequest) {
       }
     }> = []
 
-    if (sessionType === 'pitch' && projectIdForContext) {
+    // 4. Fetch previous analyzed pitch sessions for progress tracking
+    if (projectIdForContext) {
       // Get previous analyzed pitch sessions (excluding current if we have audio_session_id)
       const previousSessions = await getPreviousAnalyzedPitchSessions(
         projectIdForContext,
@@ -156,9 +171,10 @@ export async function POST(request: NextRequest) {
     const finalAttemptNumber = attempt_number || attemptNumber
 
     // 5. Analyze with Gemini (pass transcript, context object, attempt number, and previous attempts)
+    // Always use 'pitch' type since we removed context sessions
     const analysisJson = await analyzeWithGemini(
       transcript,
-      sessionType,
+      'pitch',
       combinedContext,
       finalAttemptNumber,
       previousAttempts.length > 0 ? previousAttempts : undefined
@@ -177,7 +193,7 @@ export async function POST(request: NextRequest) {
       // Update existing session
       await updateAudioSessionAnalysis(audio_session_id, analysisJson)
       savedSessionId = audio_session_id
-    } else if (sessionType === 'pitch' && projectIdForContext) {
+    } else if (projectIdForContext) {
       // Create a new session for direct transcript analysis (so it shows in progress)
       // Use a placeholder audio path since we don't have an actual audio file
       const newSession = await createAudioSession(

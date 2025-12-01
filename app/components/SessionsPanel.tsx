@@ -1,7 +1,5 @@
 'use client'
 
-import { useState } from 'react'
-
 interface AudioSession {
   id: string
   user_id: string
@@ -15,20 +13,23 @@ interface AudioSession {
 
 interface SessionsPanelProps {
   pitchSessions: AudioSession[]
-  contextSessions: AudioSession[]
   selectedSession: AudioSession | null
   onSelectSession: (session: AudioSession) => void
 }
 
 export default function SessionsPanel({
   pitchSessions,
-  contextSessions,
   selectedSession,
   onSelectSession,
 }: SessionsPanelProps) {
-  const [activeTab, setActiveTab] = useState<'pitch' | 'context'>('pitch')
-
-  const sessions = activeTab === 'pitch' ? pitchSessions : contextSessions
+  // Calculate attempt numbers (oldest first = attempt 1, newest last = attempt N)
+  const sessionsWithAttempts = pitchSessions
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+    .map((session, index) => ({
+      ...session,
+      attemptNumber: index + 1,
+    }))
+    .reverse() // Show newest first
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
@@ -44,35 +45,12 @@ export default function SessionsPanel({
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-semibold text-gray-900">Past Sessions</h3>
-      
-      <div className="flex gap-2 border-b border-gray-200">
-        <button
-          onClick={() => setActiveTab('pitch')}
-          className={`px-4 py-2 font-medium text-sm transition-colors ${
-            activeTab === 'pitch'
-              ? 'text-indigo-600 border-b-2 border-indigo-600'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          Pitch Sessions
-        </button>
-        <button
-          onClick={() => setActiveTab('context')}
-          className={`px-4 py-2 font-medium text-sm transition-colors ${
-            activeTab === 'context'
-              ? 'text-indigo-600 border-b-2 border-indigo-600'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          Context Sessions
-        </button>
-      </div>
 
       <div className="space-y-2 max-h-[400px] overflow-y-auto">
-        {sessions.length === 0 ? (
-          <p className="text-sm text-gray-500 py-8 text-center">No {activeTab} sessions yet</p>
+        {sessionsWithAttempts.length === 0 ? (
+          <p className="text-sm text-gray-500 py-8 text-center">No pitch attempts yet</p>
         ) : (
-          sessions.map((session) => (
+          sessionsWithAttempts.map((session) => (
             <button
               key={session.id}
               onClick={() => onSelectSession(session)}
@@ -83,14 +61,12 @@ export default function SessionsPanel({
               }`}
             >
               <div className="flex items-start gap-3">
-                <div className={`p-2 rounded-lg ${
-                  session.type === 'pitch' ? 'bg-green-100' : 'bg-purple-100'
-                }`}>
-                  {session.type === 'pitch' ? '🎤' : '📝'}
+                <div className="p-2 rounded-lg bg-green-100">
+                  🎤
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 capitalize">
-                    {session.type} Session
+                  <p className="text-sm font-medium text-gray-900">
+                    Attempt #{session.attemptNumber}
                   </p>
                   <p className="text-xs text-gray-500 mt-1">
                     {formatDate(session.created_at)}

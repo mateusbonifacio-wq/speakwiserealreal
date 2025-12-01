@@ -28,6 +28,11 @@ CREATE TABLE IF NOT EXISTS public.projects (
     default_goal TEXT,
     default_duration TEXT,
     default_scenario TEXT,
+    english_level TEXT,
+    tone_style TEXT,
+    constraints TEXT,
+    additional_notes TEXT,
+    context_transcript TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );

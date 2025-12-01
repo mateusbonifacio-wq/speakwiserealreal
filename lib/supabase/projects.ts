@@ -43,3 +43,32 @@ export async function getProjectById(id: string): Promise<Project | null> {
   return data
 }
 
+/**
+ * Update project context fields
+ */
+export async function updateProjectContext(
+  projectId: string,
+  context: {
+    default_audience?: string
+    default_goal?: string
+    default_duration?: string
+    default_scenario?: string
+    english_level?: string
+    tone_style?: string
+    constraints?: string
+    additional_notes?: string
+    context_transcript?: string
+  }
+): Promise<void> {
+  const supabase = await createClient()
+
+  const { error } = await supabase
+    .from('projects')
+    .update(context)
+    .eq('id', projectId)
+
+  if (error) {
+    throw new Error(`Failed to update project context: ${error.message}`)
+  }
+}
+

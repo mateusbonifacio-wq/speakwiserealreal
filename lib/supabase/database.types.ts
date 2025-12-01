@@ -37,6 +37,11 @@ export interface Database {
           default_goal: string | null
           default_duration: string | null
           default_scenario: string | null
+          english_level: string | null
+          tone_style: string | null
+          constraints: string | null
+          additional_notes: string | null
+          context_transcript: string | null
           created_at: string
           updated_at: string
         }
@@ -50,6 +55,11 @@ export interface Database {
           default_goal?: string | null
           default_duration?: string | null
           default_scenario?: string | null
+          english_level?: string | null
+          tone_style?: string | null
+          constraints?: string | null
+          additional_notes?: string | null
+          context_transcript?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -63,6 +73,11 @@ export interface Database {
           default_goal?: string | null
           default_duration?: string | null
           default_scenario?: string | null
+          english_level?: string | null
+          tone_style?: string | null
+          constraints?: string | null
+          additional_notes?: string | null
+          context_transcript?: string | null
           created_at?: string
           updated_at?: string
         }
