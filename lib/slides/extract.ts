@@ -2,8 +2,6 @@
  * Extract slide content from PDF or PPTX files
  */
 
-const pdfParse = require('pdf-parse')
-
 export interface ExtractedSlide {
   index: number
   title: string | null
@@ -15,6 +13,8 @@ export interface ExtractedSlide {
  */
 export async function extractSlidesFromPDF(pdfBuffer: Buffer): Promise<ExtractedSlide[]> {
   try {
+    // Dynamic import for pdf-parse (CommonJS module)
+    const pdfParse = (await import('pdf-parse')).default || (await import('pdf-parse'))
     const data = await pdfParse(pdfBuffer)
     
     // Split PDF into pages (slides)
