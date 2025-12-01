@@ -100,6 +100,22 @@ export async function transcribeWithElevenLabs(
       
       // If text is empty, try to extract from words array
       if (!transcript && 'words' in response && Array.isArray(response.words)) {
+        console.log('[ElevenLabs] Words array length:', response.words.length)
+        
+        // Check if words array is empty (no speech detected)
+        if (response.words.length === 0) {
+          console.warn('[ElevenLabs] Words array is empty - no speech detected')
+          console.log('[ElevenLabs] Response details:', {
+            languageCode: (response as any).languageCode,
+            languageProbability: (response as any).languageProbability,
+            transcriptionId: (response as any).transcriptionId,
+          })
+          // Return empty string - caller will handle the error
+          return ''
+        }
+        
+        console.log('[ElevenLabs] First few words:', JSON.stringify(response.words.slice(0, 3), null, 2))
+        
         transcript = response.words
           .map((word: any) => {
             // Handle different word object structures
@@ -107,6 +123,11 @@ export async function transcribeWithElevenLabs(
             if (word.word) return word.word
             if (word.text) return word.text
             if (word.wordText) return word.wordText
+            if (word.characters) return word.characters
+            // Log structure for debugging
+            if (word && typeof word === 'object') {
+              console.log('[ElevenLabs] Word object structure:', Object.keys(word))
+            }
             return ''
           })
           .filter(Boolean)

@@ -61,6 +61,17 @@ export default function PitchSection({
 
       recorder.onstop = async () => {
         const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' })
+        
+        // Check if recording is too short (less than ~1 second)
+        // Very small files (< 10KB) likely indicate very short or silent recordings
+        if (blob.size < 10000) {
+          alert('Gravação muito curta. Por favor, grave pelo menos 2-3 segundos de áudio falando claramente.')
+          stream.getTracks().forEach(track => track.stop())
+          setRecording(false)
+          setMediaRecorder(null)
+          return
+        }
+        
         const file = new File([blob], `pitch-${Date.now()}.webm`, { type: blob.type })
         try {
           const transcript = await onTranscribe(file)
