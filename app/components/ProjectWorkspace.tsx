@@ -4,10 +4,13 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import PitchSection from './PitchSection'
 import ContextSection from './ContextSection'
+import SlideDeckSection from './SlideDeckSection'
+import SlidesPanel from './SlidesPanel'
 import SessionsPanel from './SessionsPanel'
 import AnalysisPanel from './AnalysisPanel'
 import ProgressPanel from './ProgressPanel'
 import type { Project } from '@/lib/supabase/projects'
+import type { ProjectSlide } from '@/lib/supabase/project-slides'
 
 interface WorkspaceUser {
   id: string
@@ -52,6 +55,7 @@ export default function ProjectWorkspace({ project, user }: ProjectWorkspaceProp
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [isSavingContext, setIsSavingContext] = useState(false)
   const [pitchTranscript, setPitchTranscript] = useState('')
+  const [slides, setSlides] = useState<ProjectSlide[]>([])
   const [contextFields, setContextFields] = useState<ContextFields>({
     audience: project.default_audience || '',
     goal: project.default_goal || '',
@@ -68,6 +72,7 @@ export default function ProjectWorkspace({ project, user }: ProjectWorkspaceProp
   useEffect(() => {
     loadSessions()
     loadProjectContext()
+    loadSlides()
   }, [project.id])
 
   const loadProjectContext = async () => {
@@ -110,6 +115,26 @@ export default function ProjectWorkspace({ project, user }: ProjectWorkspaceProp
     } catch (error) {
       console.error('Error loading sessions:', error)
     }
+  }
+
+  const loadSlides = async () => {
+    try {
+      const { data: slidesData } = await supabase
+        .from('project_slides')
+        .select('*')
+        .eq('project_id', project.id)
+        .order('index', { ascending: true })
+
+      setSlides(slidesData || [])
+    } catch (error) {
+      console.error('Error loading slides:', error)
+    }
+  }
+
+  const handleSlideUploadComplete = async () => {
+    await loadSlides()
+    // Also reload project to get updated slide_deck_original_url
+    await loadProjectContext()
   }
 
   const handlePitchTranscribe = async (audioFile: File) => {
@@ -339,6 +364,14 @@ export default function ProjectWorkspace({ project, user }: ProjectWorkspaceProp
           />
         </div>
 
+        <div>
+          <SlideDeckSection
+            projectId={project.id}
+            slideDeckUrl={(project as any).slide_deck_original_url || null}
+            onUploadComplete={handleSlideUploadComplete}
+          />
+        </div>
+
         {pitchTranscript && (
           <div className="pt-4 border-t border-gray-200 space-y-3">
             {selectedSession && (
@@ -375,13 +408,14 @@ export default function ProjectWorkspace({ project, user }: ProjectWorkspaceProp
 
         <div className="grid grid-cols-1 lg:grid-cols-[35%_65%] gap-6 pt-8 border-t border-gray-200">
           {/* Mobile: Sessions first, then analysis */}
-          {/* Left Column: Past Sessions */}
-          <div>
+          {/* Left Column: Past Sessions + Slides */}
+          <div className="space-y-6">
             <SessionsPanel
               pitchSessions={pitchSessions}
               selectedSession={selectedSession}
               onSelectSession={handleSelectSession}
             />
+            <SlidesPanel slides={slides} />
           </div>
 
           {/* Right Column: Current Feedback + Progress */}

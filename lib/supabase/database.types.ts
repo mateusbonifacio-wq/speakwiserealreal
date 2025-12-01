@@ -6,6 +6,9 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
+// Re-export ProjectSlide type for convenience
+export type ProjectSlide = Database['public']['Tables']['project_slides']['Row']
+
 export interface Database {
   public: {
     Tables: {
@@ -43,6 +46,7 @@ export interface Database {
           additional_notes: string | null
           context_transcript: string | null
           transcription_language: string | null
+          slide_deck_original_url: string | null
           created_at: string
           updated_at: string
         }
@@ -62,6 +66,7 @@ export interface Database {
           additional_notes?: string | null
           context_transcript?: string | null
           transcription_language?: string | null
+          slide_deck_original_url?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -81,6 +86,7 @@ export interface Database {
           additional_notes?: string | null
           context_transcript?: string | null
           transcription_language?: string | null
+          slide_deck_original_url?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -114,6 +120,35 @@ export interface Database {
           audio_path?: string
           transcript?: string | null
           analysis_json?: Json | null
+          created_at?: string
+        }
+      }
+      project_slides: {
+        Row: {
+          id: string
+          project_id: string
+          index: number
+          title: string | null
+          content: string | null
+          thumbnail_url: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          project_id: string
+          index: number
+          title?: string | null
+          content?: string | null
+          thumbnail_url?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          project_id?: string
+          index?: number
+          title?: string | null
+          content?: string | null
+          thumbnail_url?: string | null
           created_at?: string
         }
       }
