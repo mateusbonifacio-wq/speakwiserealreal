@@ -72,7 +72,8 @@ export async function middleware(request: NextRequest) {
   )
 
   if (isProtected && !user) {
-    return NextResponse.redirect(new URL('/auth', request.url))
+    const authUrl = new URL('/auth', request.url)
+    return NextResponse.redirect(authUrl)
   }
 
   // Redirect authenticated users away from auth page
