@@ -14,7 +14,9 @@ export interface ExtractedSlide {
 export async function extractSlidesFromPDF(pdfBuffer: Buffer): Promise<ExtractedSlide[]> {
   try {
     // Dynamic import for pdf-parse (CommonJS module)
-    const pdfParse = (await import('pdf-parse')).default || (await import('pdf-parse'))
+    const pdfParseModule = await import('pdf-parse')
+    // pdf-parse exports the function directly, not as default
+    const pdfParse = (pdfParseModule as any).default || pdfParseModule
     const data = await pdfParse(pdfBuffer)
     
     // Split PDF into pages (slides)
