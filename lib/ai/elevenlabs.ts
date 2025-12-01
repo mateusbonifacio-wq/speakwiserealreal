@@ -79,20 +79,50 @@ export async function transcribeWithElevenLabs(
     
     // Handle different response types
     if (response && typeof response === 'object') {
-      // If it's a chunk response with text property
+      // Log full response structure for debugging
+      console.log('[ElevenLabs] Full response structure:', {
+        hasText: 'text' in response,
+        textType: typeof (response as any).text,
+        textLength: typeof (response as any).text === 'string' ? (response as any).text.length : 'N/A',
+        hasWords: 'words' in response,
+        wordsType: Array.isArray((response as any).words) ? 'array' : typeof (response as any).words,
+        wordsLength: Array.isArray((response as any).words) ? (response as any).words.length : 'N/A',
+        languageCode: (response as any).languageCode,
+        languageProbability: (response as any).languageProbability,
+      })
+      
+      // First try to get text from 'text' property
+      let transcript = ''
       if ('text' in response && typeof response.text === 'string') {
-        console.log('[ElevenLabs] Transcript (text property):', response.text.substring(0, 100))
-        return response.text
+        transcript = response.text.trim()
+        console.log('[ElevenLabs] Text property value:', transcript.substring(0, 200))
       }
-      // If it's a chunk response with words array
-      if ('words' in response && Array.isArray(response.words)) {
-        const transcript = response.words
-          .map((word: any) => word.word || word.text || '')
+      
+      // If text is empty, try to extract from words array
+      if (!transcript && 'words' in response && Array.isArray(response.words)) {
+        transcript = response.words
+          .map((word: any) => {
+            // Handle different word object structures
+            if (typeof word === 'string') return word
+            if (word.word) return word.word
+            if (word.text) return word.text
+            if (word.wordText) return word.wordText
+            return ''
+          })
           .filter(Boolean)
           .join(' ')
-        console.log('[ElevenLabs] Transcript (words array):', transcript.substring(0, 100))
+          .trim()
+        console.log('[ElevenLabs] Extracted from words array:', transcript.substring(0, 200))
+      }
+      
+      // If we got a transcript, return it
+      if (transcript) {
+        console.log('[ElevenLabs] Final transcript length:', transcript.length)
         return transcript
       }
+      
+      // Log warning if no transcript found
+      console.warn('[ElevenLabs] No transcript found in response. Full response:', JSON.stringify(response, null, 2).substring(0, 1000))
       // If it's a multichannel response
       if ('transcripts' in response && Array.isArray(response.transcripts)) {
         const transcript = response.transcripts

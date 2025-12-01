@@ -98,7 +98,12 @@ export async function POST(request: NextRequest) {
       })
       
       if (!transcript || transcript.trim().length === 0) {
-        throw new Error('Transcription returned empty result')
+        console.error('[Upload] Empty transcript received. This might indicate:')
+        console.error('  - Audio too short or silent')
+        console.error('  - Language not detected correctly')
+        console.error('  - Audio quality too poor')
+        console.error('  - API issue with ElevenLabs')
+        throw new Error('Transcription returned empty result. Please ensure you are speaking clearly and the audio is not too short.')
       }
       
       console.log('[Upload] Transcription successful, length:', transcript.length)
