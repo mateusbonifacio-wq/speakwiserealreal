@@ -86,11 +86,14 @@ export async function POST(request: NextRequest) {
         fileName: audioFile.name,
       })
       
+      // Use auto-detect for best results, but can be overridden
+      // Supported languages: 'eng' (English), 'por' (Portuguese), 'spa' (Spanish), 'fra' (French), etc.
+      // null = auto-detect (recommended for mixed or unknown languages)
       transcript = await transcribeWithElevenLabs(audioBuffer, {
         modelId: 'scribe_v1',
-        languageCode: null, // Auto-detect language (supports English, Portuguese, Spanish, etc.)
-        diarize: true,
-        tagAudioEvents: true,
+        languageCode: null, // Auto-detect language for best accuracy
+        diarize: false, // Disable diarization for single speaker (better accuracy and faster)
+        tagAudioEvents: false, // Disable audio event tagging (focus on speech, not sounds)
         mimeType: mimeType,
       })
       

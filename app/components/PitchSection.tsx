@@ -21,8 +21,38 @@ export default function PitchSection({
 
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const recorder = new MediaRecorder(stream)
+      // Request high-quality audio with echo cancellation and noise suppression
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 44100, // High quality sample rate
+          channelCount: 1, // Mono is better for speech recognition
+        }
+      })
+      
+      // Use the best available codec for webm
+      const options: MediaRecorderOptions = {
+        mimeType: 'audio/webm;codecs=opus',
+        audioBitsPerSecond: 128000, // High bitrate for better quality
+      }
+      
+      // Fallback to default if codec not supported
+      let recorder: MediaRecorder
+      if (MediaRecorder.isTypeSupported(options.mimeType!)) {
+        recorder = new MediaRecorder(stream, options)
+      } else {
+        // Try other codecs
+        const fallbackOptions = [
+          'audio/webm;codecs=opus',
+          'audio/webm',
+          'audio/ogg;codecs=opus',
+        ]
+        const supportedType = fallbackOptions.find(type => MediaRecorder.isTypeSupported(type))
+        recorder = new MediaRecorder(stream, supportedType ? { mimeType: supportedType } : {})
+      }
+      
       const chunks: Blob[] = []
 
       recorder.ondataavailable = (e) => {
@@ -30,8 +60,8 @@ export default function PitchSection({
       }
 
       recorder.onstop = async () => {
-        const blob = new Blob(chunks, { type: 'audio/webm' })
-        const file = new File([blob], `pitch-${Date.now()}.webm`, { type: 'audio/webm' })
+        const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' })
+        const file = new File([blob], `pitch-${Date.now()}.webm`, { type: blob.type })
         try {
           const transcript = await onTranscribe(file)
           onTranscriptChange(transcript)
@@ -43,12 +73,19 @@ export default function PitchSection({
         }
       }
 
-      recorder.start()
+      // Start recording with timeslice to ensure data is available
+      recorder.start(1000) // Collect data every second
       setMediaRecorder(recorder)
       setRecording(true)
-    } catch (error) {
-      alert('Error accessing microphone')
-      console.error(error)
+    } catch (error: any) {
+      console.error('Recording error:', error)
+      if (error.name === 'NotAllowedError') {
+        alert('Permissão de microfone negada. Por favor, permita o acesso ao microfone nas configurações do navegador.')
+      } else if (error.name === 'NotFoundError') {
+        alert('Nenhum microfone encontrado. Por favor, conecte um microfone e tente novamente.')
+      } else {
+        alert(`Erro ao acessar o microfone: ${error.message || 'Erro desconhecido'}`)
+      }
     }
   }
 
