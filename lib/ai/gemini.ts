@@ -209,7 +209,8 @@ ${transcript}`
           generationConfig: {
             temperature: 0.7,
             maxOutputTokens: 4096, // Increased for detailed 11-section pitch analysis
-            responseMimeType: 'application/json', // Force JSON response format
+            // Note: responseMimeType is not supported in REST API v1
+            // Relying on prompt instructions and JSON parsing instead
           },
         }),
       })
