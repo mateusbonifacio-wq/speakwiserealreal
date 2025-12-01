@@ -52,12 +52,26 @@ export async function POST(request: NextRequest) {
     const fileBuffer = Buffer.from(arrayBuffer)
 
     // 6. Upload to Supabase Storage
-    const uploadResult = await uploadSlideDeckToSupabase(
-      user.id,
-      projectId,
-      fileBuffer,
-      fileName
-    )
+    let uploadResult
+    try {
+      uploadResult = await uploadSlideDeckToSupabase(
+        user.id,
+        projectId,
+        fileBuffer,
+        fileName
+      )
+    } catch (uploadError: any) {
+      if (uploadError.message?.includes('Bucket not found')) {
+        return NextResponse.json(
+          { 
+            error: 'Storage bucket not configured. Please create the "project-decks" bucket in Supabase Storage. See SETUP-SLIDE-DECK.md for instructions.',
+            setup_required: true
+          },
+          { status: 500 }
+        )
+      }
+      throw uploadError
+    }
 
     // 7. Update project with slide deck URL
     const { error: updateError } = await supabase

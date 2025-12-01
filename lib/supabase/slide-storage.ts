@@ -45,6 +45,10 @@ export async function uploadSlideDeckToSupabase(
     })
   
   if (error) {
+    // Provide more helpful error message for bucket not found
+    if (error.message?.includes('Bucket not found') || error.message?.includes('not found')) {
+      throw new Error(`Bucket '${BUCKET_NAME}' not found. Please create the bucket in Supabase Storage. See SETUP-SLIDE-DECK.md for instructions.`)
+    }
     throw new Error(`Failed to upload slide deck: ${error.message}`)
   }
   

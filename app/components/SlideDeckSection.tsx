@@ -51,7 +51,12 @@ export default function SlideDeckSection({
 
       if (!uploadResponse.ok) {
         const error = await uploadResponse.json()
-        throw new Error(error.error || 'Upload failed')
+        const errorMessage = error.error || 'Upload failed'
+        // Provide more helpful message for bucket not found
+        if (errorMessage.includes('Bucket not found') || errorMessage.includes('not found')) {
+          throw new Error('O bucket de storage não foi encontrado. Por favor, crie o bucket "project-decks" no Supabase Storage. Veja SETUP-SLIDE-DECK.md para instruções.')
+        }
+        throw new Error(errorMessage)
       }
 
       const uploadData = await uploadResponse.json()

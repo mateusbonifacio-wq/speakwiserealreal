@@ -22,15 +22,20 @@ Isso irá:
 - Criar a tabela `project_slides` com as colunas necessárias
 - Configurar RLS (Row Level Security) policies
 
-## 📦 Passo 2: Criar Bucket de Storage
+## 📦 Passo 2: Criar Bucket de Storage (OBRIGATÓRIO)
+
+⚠️ **IMPORTANTE**: Este passo é obrigatório! O bucket deve ser criado antes de usar a funcionalidade de upload de slides.
 
 1. Acesse o **Supabase Dashboard** → **Storage**
-2. Clique em **"Create bucket"**
+2. Clique em **"Create bucket"** ou **"New bucket"**
 3. Configure:
-   - **Name**: `project-decks`
+   - **Name**: `project-decks` (exatamente este nome, sem espaços)
    - **Public bucket**: ❌ **Desmarque** (deixe privado)
    - **File size limit**: 50MB (ou o valor desejado)
+   - **Allowed MIME types**: Deixe vazio ou adicione `application/pdf` e `application/vnd.openxmlformats-officedocument.presentationml.presentation`
 4. Clique em **"Create bucket"**
+
+**Verificação**: Após criar, você deve ver o bucket `project-decks` na lista de buckets.
 
 ## 🔐 Passo 3: Configurar Storage Policies
 
