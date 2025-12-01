@@ -75,7 +75,9 @@ export async function POST(request: NextRequest) {
 
     // 8. Transcribe with ElevenLabs using scribe_v1 model with diarization
     // Use auto-detect language (null) for better accuracy
-    let transcript: string
+    let transcript: string = ''
+    let detectedLanguage = 'por' // Default to Portuguese
+    
     try {
       // Get MIME type from the file
       const mimeType = audioFile.type || 'audio/webm'
@@ -89,9 +91,6 @@ export async function POST(request: NextRequest) {
       // Try Portuguese first (most common), fallback to auto-detect
       // Supported languages: 'eng' (English), 'por' (Portuguese), 'spa' (Spanish), 'fra' (French), etc.
       // Explicit language code improves accuracy significantly
-      let transcript = ''
-      let detectedLanguage = 'por' // Default to Portuguese
-      
       try {
         // First try with Portuguese (most accurate for Portuguese speakers)
         transcript = await transcribeWithElevenLabs(audioBuffer, {
