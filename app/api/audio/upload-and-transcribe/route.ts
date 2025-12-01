@@ -86,16 +86,52 @@ export async function POST(request: NextRequest) {
         fileName: audioFile.name,
       })
       
-      // Use auto-detect for best results, but can be overridden
+      // Try Portuguese first (most common), fallback to auto-detect
       // Supported languages: 'eng' (English), 'por' (Portuguese), 'spa' (Spanish), 'fra' (French), etc.
-      // null = auto-detect (recommended for mixed or unknown languages)
-      transcript = await transcribeWithElevenLabs(audioBuffer, {
-        modelId: 'scribe_v1',
-        languageCode: null, // Auto-detect language for best accuracy
-        diarize: false, // Disable diarization for single speaker (better accuracy and faster)
-        tagAudioEvents: false, // Disable audio event tagging (focus on speech, not sounds)
-        mimeType: mimeType,
-      })
+      // Explicit language code improves accuracy significantly
+      let transcript = ''
+      let detectedLanguage = 'por' // Default to Portuguese
+      
+      try {
+        // First try with Portuguese (most accurate for Portuguese speakers)
+        transcript = await transcribeWithElevenLabs(audioBuffer, {
+          modelId: 'scribe_v1',
+          languageCode: 'por', // Explicit Portuguese for better accuracy
+          diarize: false, // Disable diarization for single speaker (better accuracy and faster)
+          tagAudioEvents: false, // Disable audio event tagging (focus on speech, not sounds)
+          mimeType: mimeType,
+        })
+        detectedLanguage = 'por'
+        console.log('[Upload] Transcription with Portuguese language code successful')
+      } catch (portugueseError: any) {
+        console.warn('[Upload] Portuguese transcription failed, trying auto-detect:', portugueseError.message)
+        // Fallback to auto-detect if Portuguese fails
+        try {
+          transcript = await transcribeWithElevenLabs(audioBuffer, {
+            modelId: 'scribe_v1',
+            languageCode: null, // Auto-detect as fallback
+            diarize: false,
+            tagAudioEvents: false,
+            mimeType: mimeType,
+          })
+          detectedLanguage = 'auto'
+          console.log('[Upload] Transcription with auto-detect successful')
+        } catch (autoDetectError: any) {
+          // If both fail, try English as last resort
+          console.warn('[Upload] Auto-detect failed, trying English:', autoDetectError.message)
+          transcript = await transcribeWithElevenLabs(audioBuffer, {
+            modelId: 'scribe_v1',
+            languageCode: 'eng', // English as last resort
+            diarize: false,
+            tagAudioEvents: false,
+            mimeType: mimeType,
+          })
+          detectedLanguage = 'eng'
+          console.log('[Upload] Transcription with English language code successful')
+        }
+      }
+      
+      console.log('[Upload] Final transcription language:', detectedLanguage)
       
       if (!transcript || transcript.trim().length === 0) {
         console.error('[Upload] Empty transcript received. This might indicate:')
