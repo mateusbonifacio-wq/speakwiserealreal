@@ -31,15 +31,9 @@ export async function extractSlidesFromPDF(pdfBuffer: Buffer): Promise<Extracted
     const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs')
     
     // Set up worker for Node.js environment
-    if (typeof window === 'undefined') {
-      // We're in Node.js, use a dummy worker path or disable worker properly
-      // Use an empty string or a valid path - pdfjs-dist needs a string, not false
-      const pdfjs = pdfjsLib as any
-      if (pdfjs.GlobalWorkerOptions) {
-        // Disable worker by setting to empty string (pdfjs-dist will use main thread)
-        pdfjs.GlobalWorkerOptions.workerSrc = ''
-      }
-    }
+    // pdfjs-dist requires a worker, but in Node.js we can use the legacy build
+    // which doesn't require a separate worker file
+    // No need to configure workerSrc for legacy build in Node.js
     
     // Get the getDocument function
     const getDocument = pdfjsLib.getDocument || (pdfjsLib as any).default?.getDocument
@@ -48,9 +42,12 @@ export async function extractSlidesFromPDF(pdfBuffer: Buffer): Promise<Extracted
       throw new Error('getDocument function not found in pdfjs-dist')
     }
     
+    // Convert Buffer to Uint8Array (pdfjs-dist requires Uint8Array, not Buffer)
+    const uint8Array = new Uint8Array(pdfBuffer)
+    
     // Load the PDF document
     const loadingTask = getDocument({
-      data: pdfBuffer,
+      data: uint8Array,
       useSystemFonts: true,
       verbosity: 0, // Suppress warnings
       isEvalSupported: false, // Disable eval for security
