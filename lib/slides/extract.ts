@@ -13,70 +13,47 @@ export interface ExtractedSlide {
  */
 export async function extractSlidesFromPDF(pdfBuffer: Buffer): Promise<ExtractedSlide[]> {
   try {
-    // Use pdfjs-dist with Node.js compatibility
-    // Import the standard build
-    const pdfjsLib = await import('pdfjs-dist')
+    // Use pdf-parse which is simpler and works better in Node.js/serverless
+    // Dynamic import to handle CommonJS module
+    const pdfParseModule = await import('pdf-parse')
+    const pdfParse = (pdfParseModule as any).default || pdfParseModule
     
-    // Configure for Node.js - try to use worker from package
-    const pdfjs = pdfjsLib as any
-    if (pdfjs.GlobalWorkerOptions) {
-      try {
-        // Try to resolve worker path (works in Node.js)
-        const workerPath = await import('pdfjs-dist/build/pdf.worker.mjs?url')
-        pdfjs.GlobalWorkerOptions.workerSrc = workerPath.default || workerPath
-      } catch (e) {
-        // If worker can't be loaded, use inline worker (slower but works)
-        // For serverless, we'll disable worker and use main thread
-        pdfjs.GlobalWorkerOptions.workerSrc = ''
+    // Parse the PDF
+    const data = await pdfParse(pdfBuffer)
+    
+    // pdf-parse returns all text, we need to split by pages
+    // Unfortunately pdf-parse doesn't provide per-page text directly
+    // We'll use a workaround: split by form feed characters or estimate pages
+    
+    // Try to split by form feed (page break character)
+    const pages = data.text.split(/\f/).filter((page: string) => page.trim().length > 0)
+    
+    // If no form feeds found, estimate pages based on text length
+    // Average ~500 characters per page is a rough estimate
+    let estimatedPages: string[] = []
+    if (pages.length === 1 && data.text.length > 0) {
+      // No page breaks found, split by approximate page size
+      const charsPerPage = 500
+      const text = data.text
+      for (let i = 0; i < text.length; i += charsPerPage) {
+        estimatedPages.push(text.substring(i, i + charsPerPage))
       }
+    } else {
+      estimatedPages = pages
     }
     
-    // Get the getDocument function
-    const getDocument = pdfjsLib.getDocument || pdfjs.default?.getDocument
-    
-    if (!getDocument) {
-      throw new Error('getDocument function not found in pdfjs-dist')
-    }
-    
-    // Convert Buffer to Uint8Array (pdfjs-dist requires Uint8Array, not Buffer)
-    const uint8Array = new Uint8Array(pdfBuffer)
-    
-    // Load the PDF document
-    const loadingTask = getDocument({
-      data: uint8Array,
-      useSystemFonts: true,
-      verbosity: 0, // Suppress warnings
+    // Extract slides from pages
+    const slides: ExtractedSlide[] = estimatedPages.map((pageText: string, index: number) => {
+      const lines = pageText.split(/\n+/).filter((line: string) => line.trim().length > 0)
+      const title = lines[0]?.trim() || null
+      const content = lines.slice(1).join('\n').trim() || null
+      
+      return {
+        index: index + 1,
+        title,
+        content,
+      }
     })
-    
-    const pdf = await loadingTask.promise
-    const numPages = pdf.numPages
-    
-    const slides: ExtractedSlide[] = []
-    
-    // Extract text from each page
-    for (let pageNum = 1; pageNum <= numPages; pageNum++) {
-      const page = await pdf.getPage(pageNum)
-      const textContent = await page.getTextContent()
-      
-      // Combine all text items from the page
-      const pageText = textContent.items
-        .map((item: any) => item.str || '')
-        .join(' ')
-        .trim()
-      
-      if (pageText) {
-        // Split into lines for better structure
-        const lines = pageText.split(/\n+/).filter((line: string) => line.trim().length > 0)
-        const title = lines[0]?.trim() || null
-        const content = lines.slice(1).join('\n').trim() || null
-        
-        slides.push({
-          index: pageNum,
-          title,
-          content,
-        })
-      }
-    }
     
     return slides.filter((slide: ExtractedSlide) => slide.title || slide.content)
   } catch (error: any) {
