@@ -368,6 +368,7 @@ export default function ProjectWorkspace({ project, user }: ProjectWorkspaceProp
           <SlideDeckSection
             projectId={project.id}
             slideDeckUrl={(project as any).slide_deck_original_url || null}
+            slides={slides}
             onUploadComplete={handleSlideUploadComplete}
           />
         </div>

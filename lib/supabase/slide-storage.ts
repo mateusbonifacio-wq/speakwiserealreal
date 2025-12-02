@@ -23,9 +23,8 @@ export async function uploadSlideDeckToSupabase(
 ): Promise<UploadSlideDeckResult> {
   const supabase = createServiceClient()
   
-  // Generate unique path: userId/projectId/filename
-  const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_')
-  const filePath = `${userId}/${projectId}/${sanitizedFileName}`
+  // Generate path: projectId/deck.pdf (simplified - no userId in path)
+  const filePath = `${projectId}/deck.pdf`
   
   // Determine content type
   const fileExtension = fileName.split('.').pop()?.toLowerCase()

@@ -3,6 +3,7 @@ import { getCurrentUser } from '@/lib/supabase/server'
 import { createClient } from '@/lib/supabase/server'
 import { getAudioSession, updateAudioSessionAnalysis, getPreviousAnalyzedPitchSessions, createAudioSession } from '@/lib/supabase/audio-sessions'
 import { getProjectById } from '@/lib/supabase/projects'
+import { getProjectSlides } from '@/lib/supabase/project-slides'
 import { analyzeWithGemini } from '@/lib/ai/gemini'
 
 export async function POST(request: NextRequest) {

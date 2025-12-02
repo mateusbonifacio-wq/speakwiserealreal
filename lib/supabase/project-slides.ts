@@ -37,7 +37,7 @@ export async function upsertProjectSlides(
 ): Promise<void> {
   const supabase = await createClient()
 
-  // Delete existing slides for this project
+  // Delete existing slides for this project (always delete before inserting)
   const { error: deleteError } = await supabase
     .from('project_slides')
     .delete()

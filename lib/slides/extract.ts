@@ -179,7 +179,7 @@ export async function extractSlidesFromPPTX(pptxBuffer: Buffer): Promise<Extract
 }
 
 /**
- * Extract slides based on file type
+ * Extract slides from PDF (PDF only for now)
  */
 export async function extractSlides(
   fileBuffer: Buffer,
@@ -190,10 +190,8 @@ export async function extractSlides(
   
   if (fileExtension === 'pdf' || mimeType === 'application/pdf') {
     return await extractSlidesFromPDF(fileBuffer)
-  } else if (fileExtension === 'pptx' || mimeType === 'application/vnd.openxmlformats-officedocument.presentationml.presentation') {
-    return await extractSlidesFromPPTX(fileBuffer)
   } else {
-    throw new Error(`Unsupported file type: ${fileExtension || mimeType}. Only PDF and PPTX files are supported.`)
+    throw new Error(`Unsupported file type: ${fileExtension || mimeType}. Only PDF files are supported.`)
   }
 }
 

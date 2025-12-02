@@ -14,14 +14,10 @@ export async function POST(request: NextRequest) {
 
     // 2. Parse request body
     const body = await request.json()
-    const { project_id, file_path, file_name, mime_type } = body
+    const { project_id } = body
 
     if (!project_id) {
       return NextResponse.json({ error: 'Project ID is required' }, { status: 400 })
-    }
-
-    if (!file_path) {
-      return NextResponse.json({ error: 'File path is required' }, { status: 400 })
     }
 
     // 3. Verify project ownership
@@ -36,10 +32,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 })
     }
 
-    // 4. Get signed URL to download the file
-    const signedUrl = await getSignedSlideDeckUrl(file_path, 3600) // 1 hour expiry
+    // 4. Get file path from project or construct it
+    const filePath = `${project_id}/deck.pdf`
+    
+    // 5. Get signed URL to download the file
+    const signedUrl = await getSignedSlideDeckUrl(filePath, 3600) // 1 hour expiry
 
-    // 5. Download the file
+    // 6. Download the file
     const fileResponse = await fetch(signedUrl)
     if (!fileResponse.ok) {
       throw new Error(`Failed to download file: ${fileResponse.statusText}`)
@@ -47,11 +46,11 @@ export async function POST(request: NextRequest) {
 
     const fileBuffer = Buffer.from(await fileResponse.arrayBuffer())
 
-    // 6. Extract slides
+    // 7. Extract slides from PDF
     const extractedSlides = await extractSlides(
       fileBuffer,
-      mime_type || 'application/pdf',
-      file_name || 'deck.pdf'
+      'application/pdf',
+      'deck.pdf'
     )
 
     console.log(`[Slides] Extracted ${extractedSlides.length} slides from ${file_name}`)

@@ -23,14 +23,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Project ID is required' }, { status: 400 })
     }
 
-    // 3. Validate file type
+    // 3. Validate file type - PDF only
     const fileName = file.name
     const fileExtension = fileName.split('.').pop()?.toLowerCase()
     const mimeType = file.type
 
-    if (fileExtension !== 'pdf' && fileExtension !== 'pptx') {
+    if (fileExtension !== 'pdf' || mimeType !== 'application/pdf') {
       return NextResponse.json(
-        { error: 'Invalid file type. Only PDF and PPTX files are supported.' },
+        { error: 'Invalid file type. Only PDF files are supported.' },
         { status: 400 }
       )
     }
@@ -51,14 +51,14 @@ export async function POST(request: NextRequest) {
     const arrayBuffer = await file.arrayBuffer()
     const fileBuffer = Buffer.from(arrayBuffer)
 
-    // 6. Upload to Supabase Storage
+    // 6. Upload to Supabase Storage (always save as deck.pdf)
     let uploadResult
     try {
       uploadResult = await uploadSlideDeckToSupabase(
         user.id,
         projectId,
         fileBuffer,
-        fileName
+        'deck.pdf' // Always use same filename for consistency
       )
     } catch (uploadError: any) {
       if (uploadError.message?.includes('Bucket not found')) {

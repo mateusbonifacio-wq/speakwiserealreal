@@ -44,7 +44,8 @@ export async function analyzeWithGemini(
     additional_notes?: string
   },
   attemptNumber?: number,
-  previousAttempts?: PreviousAttempt[]
+  previousAttempts?: PreviousAttempt[],
+  slides?: Array<{ index: number; title: string | null; content: string | null }>
 ): Promise<any> {
   const apiKey = process.env.GOOGLE_AI_API_KEY
   
@@ -100,6 +101,15 @@ Style:
       if (contextParts.length > 0) {
         contextInfo = '\n\nContext Information:\n' + contextParts.join('\n')
       }
+    }
+    
+    // Add slides information if available
+    if (slides && slides.length > 0) {
+      const slidesInfo = '\n\nSlide Deck Content:\n' + slides.map(slide => {
+        const slideText = `Slide ${slide.index}:${slide.title ? ` ${slide.title}` : ''}${slide.content ? `\n${slide.content}` : ''}`
+        return slideText
+      }).join('\n\n')
+      contextInfo += slidesInfo
     }
     
     // Build attempt and previous attempts info

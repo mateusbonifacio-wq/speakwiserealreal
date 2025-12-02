@@ -5,12 +5,19 @@ import { useState, useRef } from 'react'
 interface SlideDeckSectionProps {
   projectId: string
   slideDeckUrl: string | null
+  slides: Array<{
+    id: string
+    index: number
+    title: string | null
+    content: string | null
+  }>
   onUploadComplete: () => void
 }
 
 export default function SlideDeckSection({
   projectId,
   slideDeckUrl,
+  slides,
   onUploadComplete,
 }: SlideDeckSectionProps) {
   const [uploading, setUploading] = useState(false)
@@ -22,10 +29,10 @@ export default function SlideDeckSection({
     const file = e.target.files?.[0]
     if (!file) return
 
-    // Validate file type
+    // Validate file type - PDF only
     const fileExtension = file.name.split('.').pop()?.toLowerCase()
-    if (fileExtension !== 'pdf' && fileExtension !== 'pptx') {
-      alert('Por favor, selecione um arquivo PDF ou PPTX.')
+    if (fileExtension !== 'pdf') {
+      alert('Apenas arquivos PDF são suportados no momento.')
       return
     }
 
@@ -127,7 +134,7 @@ export default function SlideDeckSection({
         <input
           ref={fileInputRef}
           type="file"
-          accept=".pdf,.pptx,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+          accept=".pdf,application/pdf"
           onChange={handleFileUpload}
           className="hidden"
         />
@@ -143,7 +150,15 @@ export default function SlideDeckSection({
         </div>
       )}
 
-      {slideDeckUrl && (
+      {extracting && (
+        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-sm text-blue-800">
+            Processando seu slide deck...
+          </p>
+        </div>
+      )}
+
+      {slideDeckUrl && !extracting && slides.length === 0 && (
         <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
           <p className="text-xs font-medium text-purple-900 mb-1">Slide deck carregado</p>
           <p className="text-sm text-purple-800">
@@ -152,8 +167,42 @@ export default function SlideDeckSection({
         </div>
       )}
 
+      {slides.length > 0 && (
+        <div className="mt-4 space-y-2">
+          <h4 className="text-sm font-semibold text-gray-900">Slides extraídos ({slides.length})</h4>
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {slides.map((slide) => (
+              <div key={slide.id} className="p-3 bg-white border border-gray-200 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <span className="text-xs font-semibold text-purple-700 bg-purple-100 px-2 py-1 rounded">
+                    Slide {slide.index}
+                  </span>
+                  {slide.title && (
+                    <h5 className="text-sm font-medium text-gray-900 flex-1">
+                      {slide.title}
+                    </h5>
+                  )}
+                </div>
+                {slide.content && (
+                  <p className="text-xs text-gray-600 mt-2 line-clamp-2">
+                    {slide.content.substring(0, 120)}
+                    {slide.content.length > 120 ? '...' : ''}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!slideDeckUrl && !extracting && slides.length === 0 && (
+        <p className="text-sm text-gray-500 text-center py-2">
+          Nenhum slide deck carregado ainda.
+        </p>
+      )}
+
       <p className="text-xs text-gray-500">
-        Formatos suportados: PDF (.pdf) e PowerPoint (.pptx). Tamanho máximo: 50MB.
+        Formato suportado: PDF (.pdf). Tamanho máximo: 50MB.
       </p>
 
       {/* Warning if bucket not configured */}
