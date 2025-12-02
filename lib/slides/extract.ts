@@ -13,17 +13,27 @@ export interface ExtractedSlide {
  */
 export async function extractSlidesFromPDF(pdfBuffer: Buffer): Promise<ExtractedSlide[]> {
   try {
-    // Use pdfjs-dist which is compatible with Node.js
-    // Try different import paths for compatibility
-    let pdfjsLib: any
-    try {
-      pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs')
-    } catch (e1) {
-      try {
-        pdfjsLib = await import('pdfjs-dist')
-      } catch (e2) {
-        throw new Error(`Failed to import pdfjs-dist: ${e1}, ${e2}`)
+    // Polyfill DOMMatrix for Node.js environment
+    if (typeof globalThis.DOMMatrix === 'undefined') {
+      // Simple DOMMatrix polyfill for pdfjs-dist
+      (globalThis as any).DOMMatrix = class DOMMatrix {
+        constructor(init?: string | number[]) {
+          // Minimal implementation
+        }
+        static fromMatrix() {
+          return new DOMMatrix()
+        }
       }
+    }
+    
+    // Use pdfjs-dist with Node.js compatibility
+    // Import the worker version that works in Node.js
+    const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs')
+    
+    // Set up worker for Node.js environment
+    if (typeof window === 'undefined') {
+      // We're in Node.js, disable worker
+      ;(pdfjsLib as any).GlobalWorkerOptions.workerSrc = false
     }
     
     // Get the getDocument function
@@ -38,6 +48,7 @@ export async function extractSlidesFromPDF(pdfBuffer: Buffer): Promise<Extracted
       data: pdfBuffer,
       useSystemFonts: true,
       verbosity: 0, // Suppress warnings
+      isEvalSupported: false, // Disable eval for security
     })
     
     const pdf = await loadingTask.promise
