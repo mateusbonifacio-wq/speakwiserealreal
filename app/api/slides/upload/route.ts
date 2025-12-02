@@ -73,15 +73,25 @@ export async function POST(request: NextRequest) {
       throw uploadError
     }
 
-    // 7. Update project with slide deck URL
-    const { error: updateError } = await supabase
-      .from('projects')
-      .update({ slide_deck_original_url: uploadResult.path })
-      .eq('id', projectId)
+    // 7. Update project with slide deck URL (if column exists)
+    try {
+      const { error: updateError } = await supabase
+        .from('projects')
+        .update({ slide_deck_original_url: uploadResult.path })
+        .eq('id', projectId)
 
-    if (updateError) {
-      console.error('Failed to update project with slide deck URL:', updateError)
-      // Continue anyway - the file is uploaded
+      if (updateError) {
+        // If column doesn't exist, log but don't fail - user needs to run migration
+        if (updateError.code === 'PGRST204' || updateError.message?.includes('column') || updateError.message?.includes('schema cache')) {
+          console.warn('[Upload] Column slide_deck_original_url not found. Please run supabase/add-slides-support.sql migration.')
+        } else {
+          console.error('Failed to update project with slide deck URL:', updateError)
+        }
+        // Continue anyway - the file is uploaded successfully
+      }
+    } catch (updateErr: any) {
+      // Silently continue - file upload was successful
+      console.warn('[Upload] Could not update project URL (migration may be needed):', updateErr.message)
     }
 
     // 8. Return response with file info
