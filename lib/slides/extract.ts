@@ -14,15 +14,21 @@ export interface ExtractedSlide {
 export async function extractSlidesFromPDF(pdfBuffer: Buffer): Promise<ExtractedSlide[]> {
   try {
     // Use pdfjs-dist with Node.js compatibility
-    // Import the legacy build which works better in Node.js
-    const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs')
+    // Import the standard build
+    const pdfjsLib = await import('pdfjs-dist')
     
-    // Configure for Node.js environment - disable worker
+    // Configure for Node.js - try to use worker from package
     const pdfjs = pdfjsLib as any
     if (pdfjs.GlobalWorkerOptions) {
-      // Use a dummy worker path that won't be loaded
-      // In Node.js, we'll use the main thread
-      pdfjs.GlobalWorkerOptions.workerSrc = 'data:application/javascript,'
+      try {
+        // Try to resolve worker path (works in Node.js)
+        const workerPath = await import('pdfjs-dist/build/pdf.worker.mjs?url')
+        pdfjs.GlobalWorkerOptions.workerSrc = workerPath.default || workerPath
+      } catch (e) {
+        // If worker can't be loaded, use inline worker (slower but works)
+        // For serverless, we'll disable worker and use main thread
+        pdfjs.GlobalWorkerOptions.workerSrc = ''
+      }
     }
     
     // Get the getDocument function
@@ -35,14 +41,11 @@ export async function extractSlidesFromPDF(pdfBuffer: Buffer): Promise<Extracted
     // Convert Buffer to Uint8Array (pdfjs-dist requires Uint8Array, not Buffer)
     const uint8Array = new Uint8Array(pdfBuffer)
     
-    // Load the PDF document with Node.js-friendly options
+    // Load the PDF document
     const loadingTask = getDocument({
       data: uint8Array,
       useSystemFonts: true,
       verbosity: 0, // Suppress warnings
-      isEvalSupported: false, // Disable eval for security
-      useWorkerFetch: false, // Disable worker fetch in Node.js
-      stopAtErrors: false, // Continue even if there are errors
     })
     
     const pdf = await loadingTask.promise
