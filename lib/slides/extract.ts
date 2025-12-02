@@ -14,12 +14,30 @@ export interface ExtractedSlide {
 export async function extractSlidesFromPDF(pdfBuffer: Buffer): Promise<ExtractedSlide[]> {
   try {
     // Use pdfjs-dist which is compatible with Node.js
-    const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs')
+    // Try different import paths for compatibility
+    let pdfjsLib: any
+    try {
+      pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs')
+    } catch (e1) {
+      try {
+        pdfjsLib = await import('pdfjs-dist')
+      } catch (e2) {
+        throw new Error(`Failed to import pdfjs-dist: ${e1}, ${e2}`)
+      }
+    }
+    
+    // Get the getDocument function
+    const getDocument = pdfjsLib.getDocument || (pdfjsLib as any).default?.getDocument
+    
+    if (!getDocument) {
+      throw new Error('getDocument function not found in pdfjs-dist')
+    }
     
     // Load the PDF document
-    const loadingTask = pdfjsLib.getDocument({
+    const loadingTask = getDocument({
       data: pdfBuffer,
       useSystemFonts: true,
+      verbosity: 0, // Suppress warnings
     })
     
     const pdf = await loadingTask.promise
@@ -34,14 +52,15 @@ export async function extractSlidesFromPDF(pdfBuffer: Buffer): Promise<Extracted
       
       // Combine all text items from the page
       const pageText = textContent.items
-        .map((item: any) => item.str)
+        .map((item: any) => item.str || '')
         .join(' ')
         .trim()
       
       if (pageText) {
-        const lines = pageText.split(/\s+/).filter(line => line.trim().length > 0)
-        const title = lines[0] || null
-        const content = lines.slice(1).join(' ').trim() || null
+        // Split into lines for better structure
+        const lines = pageText.split(/\n+/).filter(line => line.trim().length > 0)
+        const title = lines[0]?.trim() || null
+        const content = lines.slice(1).join('\n').trim() || null
         
         slides.push({
           index: pageNum,
