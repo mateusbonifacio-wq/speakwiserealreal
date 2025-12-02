@@ -58,7 +58,7 @@ export async function extractSlidesFromPDF(pdfBuffer: Buffer): Promise<Extracted
       
       if (pageText) {
         // Split into lines for better structure
-        const lines = pageText.split(/\n+/).filter(line => line.trim().length > 0)
+        const lines = pageText.split(/\n+/).filter((line: string) => line.trim().length > 0)
         const title = lines[0]?.trim() || null
         const content = lines.slice(1).join('\n').trim() || null
         
