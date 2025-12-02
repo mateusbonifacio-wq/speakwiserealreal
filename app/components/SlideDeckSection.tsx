@@ -76,9 +76,6 @@ export default function SlideDeckSection({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           project_id: projectId,
-          file_path: uploadData.file_path,
-          file_name: uploadData.file_name,
-          mime_type: file.type,
         }),
       })
 
@@ -110,7 +107,7 @@ export default function SlideDeckSection({
       <div>
         <h2 className="text-xl font-semibold text-gray-900 mb-1">Pitch Deck (opcional)</h2>
         <p className="text-sm text-gray-600">
-          Faça upload de um arquivo PDF ou PowerPoint para que o SpeakWise Real entenda melhor seu pitch deck.
+          Faça upload de um arquivo PDF para que o SpeakWise Real entenda melhor seu pitch deck.
         </p>
       </div>
 
