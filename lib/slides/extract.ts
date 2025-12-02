@@ -32,8 +32,13 @@ export async function extractSlidesFromPDF(pdfBuffer: Buffer): Promise<Extracted
     
     // Set up worker for Node.js environment
     if (typeof window === 'undefined') {
-      // We're in Node.js, disable worker
-      ;(pdfjsLib as any).GlobalWorkerOptions.workerSrc = false
+      // We're in Node.js, use a dummy worker path or disable worker properly
+      // Use an empty string or a valid path - pdfjs-dist needs a string, not false
+      const pdfjs = pdfjsLib as any
+      if (pdfjs.GlobalWorkerOptions) {
+        // Disable worker by setting to empty string (pdfjs-dist will use main thread)
+        pdfjs.GlobalWorkerOptions.workerSrc = ''
+      }
     }
     
     // Get the getDocument function
