@@ -53,8 +53,8 @@ export default function SlideDeckSection({
         const error = await uploadResponse.json()
         const errorMessage = error.error || 'Upload failed'
         // Provide more helpful message for bucket not found
-        if (errorMessage.includes('Bucket not found') || errorMessage.includes('not found')) {
-          throw new Error('O bucket de storage não foi encontrado. Por favor, crie o bucket "project-decks" no Supabase Storage. Veja SETUP-SLIDE-DECK.md para instruções.')
+        if (errorMessage.includes('Bucket not found') || errorMessage.includes('not found') || errorMessage.includes('Bucket')) {
+          throw new Error('Bucket not found - O bucket de storage não foi encontrado. Por favor, crie o bucket "project-decks" no Supabase Storage. Veja CRIAR-BUCKET-SLIDES.md para instruções.')
         }
         throw new Error(errorMessage)
       }
@@ -155,6 +155,33 @@ export default function SlideDeckSection({
       <p className="text-xs text-gray-500">
         Formatos suportados: PDF (.pdf) e PowerPoint (.pptx). Tamanho máximo: 50MB.
       </p>
+
+      {/* Warning if bucket not configured */}
+      {uploadStatus && uploadStatus.includes('Bucket not found') && (
+        <div className="mt-4 p-4 bg-red-50 border-2 border-red-200 rounded-lg">
+          <h4 className="text-sm font-semibold text-red-900 mb-2">⚠️ Configuração Necessária</h4>
+          <p className="text-sm text-red-800 mb-3">
+            O bucket de storage não foi configurado ainda. Você precisa criar o bucket <code className="bg-red-100 px-1 rounded">project-decks</code> no Supabase Storage.
+          </p>
+          <div className="space-y-2 text-sm text-red-700">
+            <p className="font-medium">Opção 1: Script Automático (Recomendado)</p>
+            <code className="block bg-red-100 p-2 rounded text-xs">
+              node create-slide-deck-bucket.js
+            </code>
+            <p className="font-medium mt-3">Opção 2: Manual</p>
+            <ol className="list-decimal list-inside space-y-1 ml-2">
+              <li>Acesse: <a href="https://app.supabase.com" target="_blank" rel="noopener noreferrer" className="underline">Supabase Dashboard</a> → Storage</li>
+              <li>Clique em "New bucket"</li>
+              <li>Nome: <code className="bg-red-100 px-1 rounded">project-decks</code></li>
+              <li>Desmarque "Public bucket" (deixe privado)</li>
+              <li>Clique em "Create bucket"</li>
+            </ol>
+            <p className="mt-3 text-xs">
+              📖 Veja o guia completo: <code className="bg-red-100 px-1 rounded">CRIAR-BUCKET-SLIDES.md</code>
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
