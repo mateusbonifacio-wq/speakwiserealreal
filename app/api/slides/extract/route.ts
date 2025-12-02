@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
       'deck.pdf'
     )
 
-    console.log(`[Slides] Extracted ${extractedSlides.length} slides from ${file_name}`)
+    console.log(`[Slides] Extracted ${extractedSlides.length} slides from PDF deck`)
 
     // 7. Save slides to database
     await upsertProjectSlides(project_id, extractedSlides)
