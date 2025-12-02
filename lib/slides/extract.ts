@@ -13,29 +13,47 @@ export interface ExtractedSlide {
  */
 export async function extractSlidesFromPDF(pdfBuffer: Buffer): Promise<ExtractedSlide[]> {
   try {
-    // Dynamic import for pdf-parse (CommonJS module)
-    const pdfParseModule = await import('pdf-parse')
-    // pdf-parse exports the function directly, not as default
-    const pdfParse = (pdfParseModule as any).default || pdfParseModule
-    const data = await pdfParse(pdfBuffer)
+    // Use pdfjs-dist which is compatible with Node.js
+    const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs')
     
-    // Split PDF into pages (slides)
-    // For now, treat each page as a slide
-    // In the future, we could use more sophisticated parsing
-    const pages = data.text.split(/\f/) // Form feed character separates pages
+    // Load the PDF document
+    const loadingTask = pdfjsLib.getDocument({
+      data: pdfBuffer,
+      useSystemFonts: true,
+    })
     
-    return pages.map((pageText: string, index: number) => {
-      const lines = pageText.split('\n').filter(line => line.trim().length > 0)
-      const title = lines[0]?.trim() || null
-      const content = lines.slice(1).join('\n').trim() || null
+    const pdf = await loadingTask.promise
+    const numPages = pdf.numPages
+    
+    const slides: ExtractedSlide[] = []
+    
+    // Extract text from each page
+    for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum)
+      const textContent = await page.getTextContent()
       
-      return {
-        index: index + 1,
-        title,
-        content,
+      // Combine all text items from the page
+      const pageText = textContent.items
+        .map((item: any) => item.str)
+        .join(' ')
+        .trim()
+      
+      if (pageText) {
+        const lines = pageText.split(/\s+/).filter(line => line.trim().length > 0)
+        const title = lines[0] || null
+        const content = lines.slice(1).join(' ').trim() || null
+        
+        slides.push({
+          index: pageNum,
+          title,
+          content,
+        })
       }
-    }).filter((slide: ExtractedSlide) => slide.title || slide.content) // Only include slides with content
+    }
+    
+    return slides.filter((slide: ExtractedSlide) => slide.title || slide.content)
   } catch (error: any) {
+    console.error('[PDF] Parsing error:', error)
     throw new Error(`Failed to parse PDF: ${error.message}`)
   }
 }
