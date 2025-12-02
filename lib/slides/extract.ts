@@ -13,30 +13,20 @@ export interface ExtractedSlide {
  */
 export async function extractSlidesFromPDF(pdfBuffer: Buffer): Promise<ExtractedSlide[]> {
   try {
-    // Polyfill DOMMatrix for Node.js environment
-    if (typeof globalThis.DOMMatrix === 'undefined') {
-      // Simple DOMMatrix polyfill for pdfjs-dist
-      (globalThis as any).DOMMatrix = class DOMMatrix {
-        constructor(init?: string | number[]) {
-          // Minimal implementation
-        }
-        static fromMatrix() {
-          return new DOMMatrix()
-        }
-      }
-    }
-    
     // Use pdfjs-dist with Node.js compatibility
-    // Import the worker version that works in Node.js
+    // Import the legacy build which works better in Node.js
     const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs')
     
-    // Set up worker for Node.js environment
-    // pdfjs-dist requires a worker, but in Node.js we can use the legacy build
-    // which doesn't require a separate worker file
-    // No need to configure workerSrc for legacy build in Node.js
+    // Configure for Node.js environment - disable worker
+    const pdfjs = pdfjsLib as any
+    if (pdfjs.GlobalWorkerOptions) {
+      // Use a dummy worker path that won't be loaded
+      // In Node.js, we'll use the main thread
+      pdfjs.GlobalWorkerOptions.workerSrc = 'data:application/javascript,'
+    }
     
     // Get the getDocument function
-    const getDocument = pdfjsLib.getDocument || (pdfjsLib as any).default?.getDocument
+    const getDocument = pdfjsLib.getDocument || pdfjs.default?.getDocument
     
     if (!getDocument) {
       throw new Error('getDocument function not found in pdfjs-dist')
@@ -45,12 +35,14 @@ export async function extractSlidesFromPDF(pdfBuffer: Buffer): Promise<Extracted
     // Convert Buffer to Uint8Array (pdfjs-dist requires Uint8Array, not Buffer)
     const uint8Array = new Uint8Array(pdfBuffer)
     
-    // Load the PDF document
+    // Load the PDF document with Node.js-friendly options
     const loadingTask = getDocument({
       data: uint8Array,
       useSystemFonts: true,
       verbosity: 0, // Suppress warnings
       isEvalSupported: false, // Disable eval for security
+      useWorkerFetch: false, // Disable worker fetch in Node.js
+      stopAtErrors: false, // Continue even if there are errors
     })
     
     const pdf = await loadingTask.promise
