@@ -14,39 +14,56 @@
 -- Then run the storage policies below:
 
 -- Storage policies for project-decks bucket
--- Users can upload files to their own project folders
+-- Path format: {projectId}/deck.pdf
+-- Users can upload files to their own projects
 CREATE POLICY "Users can upload to own project decks"
 ON storage.objects
 FOR INSERT
 WITH CHECK (
   bucket_id = 'project-decks' AND
-  (storage.foldername(name))[1] = auth.uid()::text
+  EXISTS (
+    SELECT 1 FROM public.projects
+    WHERE projects.id::text = (storage.foldername(name))[1]
+    AND projects.user_id = auth.uid()
+  )
 );
 
--- Users can read files from their own project folders
+-- Users can read files from their own projects
 CREATE POLICY "Users can read own project decks"
 ON storage.objects
 FOR SELECT
 USING (
   bucket_id = 'project-decks' AND
-  (storage.foldername(name))[1] = auth.uid()::text
+  EXISTS (
+    SELECT 1 FROM public.projects
+    WHERE projects.id::text = (storage.foldername(name))[1]
+    AND projects.user_id = auth.uid()
+  )
 );
 
--- Users can update files in their own project folders
+-- Users can update files in their own projects
 CREATE POLICY "Users can update own project decks"
 ON storage.objects
 FOR UPDATE
 USING (
   bucket_id = 'project-decks' AND
-  (storage.foldername(name))[1] = auth.uid()::text
+  EXISTS (
+    SELECT 1 FROM public.projects
+    WHERE projects.id::text = (storage.foldername(name))[1]
+    AND projects.user_id = auth.uid()
+  )
 );
 
--- Users can delete files from their own project folders
+-- Users can delete files from their own projects
 CREATE POLICY "Users can delete own project decks"
 ON storage.objects
 FOR DELETE
 USING (
   bucket_id = 'project-decks' AND
-  (storage.foldername(name))[1] = auth.uid()::text
+  EXISTS (
+    SELECT 1 FROM public.projects
+    WHERE projects.id::text = (storage.foldername(name))[1]
+    AND projects.user_id = auth.uid()
+  )
 );
 
