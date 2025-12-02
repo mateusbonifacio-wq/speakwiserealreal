@@ -171,14 +171,31 @@ export async function POST(request: NextRequest) {
     // Use provided attempt_number if available, otherwise use calculated one
     const finalAttemptNumber = attempt_number || attemptNumber
 
-    // 5. Analyze with Gemini (pass transcript, context object, attempt number, and previous attempts)
+    // 5. Fetch slides for the project (if project_id is available)
+    let projectSlides: Array<{ index: number; title: string | null; content: string | null }> = []
+    if (projectIdForContext) {
+      try {
+        const slides = await getProjectSlides(projectIdForContext)
+        projectSlides = slides.map(s => ({
+          index: s.index,
+          title: s.title,
+          content: s.content,
+        }))
+      } catch (error) {
+        console.warn('[Analyze] Failed to load project slides:', error)
+        // Continue without slides - not critical
+      }
+    }
+
+    // 6. Analyze with Gemini (pass transcript, context object, attempt number, previous attempts, and slides)
     // Always use 'pitch' type since we removed context sessions
     const analysisJson = await analyzeWithGemini(
       transcript,
       'pitch',
       combinedContext,
       finalAttemptNumber,
-      previousAttempts.length > 0 ? previousAttempts : undefined
+      previousAttempts.length > 0 ? previousAttempts : undefined,
+      projectSlides.length > 0 ? projectSlides : undefined
     )
 
     // 6. Ensure analysis_json includes scores for future progress tracking
