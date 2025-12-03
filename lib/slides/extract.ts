@@ -55,31 +55,17 @@ export async function extractSlidesFromPDF(pdfBuffer: Buffer): Promise<Extracted
     }
     
     // Use pdf-parse which is simpler and works better in Node.js/serverless
-    // pdf-parse is a CommonJS module, need to handle import correctly
-    let pdfParse: any
-    try {
-      // Try dynamic import
-      const pdfParseModule = await import('pdf-parse')
-      // pdf-parse exports the function directly, not as default
-      pdfParse = pdfParseModule.default || pdfParseModule
-      
-      // If it's still an object, try to get the function
-      if (typeof pdfParse !== 'function') {
-        // Try to find the function in the module
-        pdfParse = (pdfParseModule as any).default?.default || 
-                   (pdfParseModule as any).default ||
-                   pdfParseModule
-      }
-    } catch (importError) {
-      // Fallback: use require (works in Node.js)
-      pdfParse = require('pdf-parse')
-    }
+    // pdf-parse is a CommonJS module - use require() directly for better compatibility
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const pdfParse = require('pdf-parse')
     
+    // Validate that we got a function
     if (typeof pdfParse !== 'function') {
-      throw new Error('pdf-parse function not found. Module structure: ' + JSON.stringify(Object.keys(pdfParse || {})))
+      console.error('[PDF] pdf-parse module structure:', Object.keys(pdfParse || {}))
+      throw new Error('pdf-parse is not a function. Check module import.')
     }
     
-    // Parse the PDF
+    // Parse the PDF - pdf-parse returns a Promise
     const data = await pdfParse(pdfBuffer)
     
     // pdf-parse returns all text, we need to split by pages
