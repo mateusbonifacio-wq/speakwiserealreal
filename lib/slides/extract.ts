@@ -13,6 +13,47 @@ export interface ExtractedSlide {
  */
 export async function extractSlidesFromPDF(pdfBuffer: Buffer): Promise<ExtractedSlide[]> {
   try {
+    // Polyfill DOMMatrix before importing pdf-parse (it may use pdfjs-dist internally)
+    if (typeof globalThis.DOMMatrix === 'undefined') {
+      (globalThis as any).DOMMatrix = class DOMMatrix {
+        constructor(init?: string | number[]) {
+          // Minimal implementation
+        }
+        static fromMatrix() {
+          return new DOMMatrix()
+        }
+      }
+    }
+    
+    // Polyfill ImageData
+    if (typeof globalThis.ImageData === 'undefined') {
+      (globalThis as any).ImageData = class ImageData {
+        data: Uint8ClampedArray
+        width: number
+        height: number
+        constructor(dataOrWidth: Uint8ClampedArray | number, heightOrWidth?: number, height?: number) {
+          if (typeof dataOrWidth === 'number') {
+            this.width = dataOrWidth
+            this.height = heightOrWidth || 1
+            this.data = new Uint8ClampedArray(this.width * this.height * 4)
+          } else {
+            this.data = dataOrWidth
+            this.width = heightOrWidth || 1
+            this.height = height || 1
+          }
+        }
+      }
+    }
+    
+    // Polyfill Path2D
+    if (typeof globalThis.Path2D === 'undefined') {
+      (globalThis as any).Path2D = class Path2D {
+        constructor() {
+          // Minimal implementation
+        }
+      }
+    }
+    
     // Use pdf-parse which is simpler and works better in Node.js/serverless
     // Dynamic import to handle CommonJS module
     const pdfParseModule = await import('pdf-parse')
