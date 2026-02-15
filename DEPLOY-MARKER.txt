@@ -1,0 +1,4 @@
+Deploy verification - SpeakWise Pitch Coach
+Last deploy trigger: 2025-02-15
+Repo: https://github.com/mateusbonifacio-wq/speakwiserealreal
+If you see this file on your Vercel deployment, this is the correct project.
