@@ -123,6 +123,23 @@ export interface Database {
           created_at?: string
         }
       }
+      access_codes: {
+        Row: {
+          code: string
+          email: string
+          created_at: string
+        }
+        Insert: {
+          code: string
+          email: string
+          created_at?: string
+        }
+        Update: {
+          code?: string
+          email?: string
+          created_at?: string
+        }
+      }
       project_slides: {
         Row: {
           id: string
