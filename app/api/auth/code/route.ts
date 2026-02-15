@@ -46,9 +46,10 @@ export async function POST(request: NextRequest) {
     .from('access_codes')
     .select('email')
     .eq('code', code)
-    .single()
+    .maybeSingle()
 
-  if (lookupError || !row?.email) {
+  const email = row && 'email' in row ? (row as { email: string }).email : null
+  if (lookupError || !email) {
     return NextResponse.json(
       { error: 'Código inválido ou inexistente.' },
       { status: 401 }
@@ -78,7 +79,7 @@ export async function POST(request: NextRequest) {
   )
 
   const { error: signInError } = await supabase.auth.signInWithPassword({
-    email: row.email,
+    email,
     password,
   })
 
