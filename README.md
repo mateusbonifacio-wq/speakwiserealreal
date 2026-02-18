@@ -4,7 +4,7 @@ AI-powered pitch coaching application built with Next.js, TypeScript, Supabase, 
 
 ## Features
 
-- **Authentication**: Email/password authentication via Supabase
+- **Authentication**: Acesso por código de 6 dígitos (5 contas pré-definidas)
 - **Audio Upload & Recording**: Upload or record audio for pitch and context
 - **Speech-to-Text**: Automatic transcription using ElevenLabs API
 - **AI Analysis**: Get structured feedback using Google Gemini API
@@ -30,27 +30,28 @@ npm install
 
 ### 2. Environment Variables
 
-Create a `.env.local` file in the root directory with the following variables:
+Copia `.env.example` para `.env.local` e preenche. Ou corre `node update-supabase-env.js` para configurar Supabase.
+
+Variáveis necessárias: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `ACCESS_CODE_PASSWORD`, `ELEVENLABS_API_KEY`, `GOOGLE_AI_API_KEY`.
+
+**Setup completo (novo projeto Supabase):** ver **`docs/O-QUE-TENS-DE-FAZER.md`** (checklist passo a passo).
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+ACCESS_CODE_PASSWORD=your_secret_password_for_code_accounts
 ELEVENLABS_API_KEY=your_elevenlabs_api_key
 GOOGLE_AI_API_KEY=your_google_ai_api_key
 ```
 
 ### 3. Supabase Setup
 
-#### Database Schema
+Para um **projeto novo** (ex.: speakwise5): no SQL Editor do Supabase, corre todo o ficheiro **`supabase/01-setup-completo.sql`**. Cria todas as tabelas e políticas RLS.
 
-Run the SQL in `supabase/schema.sql` in your Supabase SQL editor to create:
-- `profiles` table
-- `audio_sessions` table
-- `projects` table (if not already created)
-- Row Level Security (RLS) policies
+Depois corre **`node scripts/create-access-codes.js`** para criar as 5 contas e códigos de acesso.
 
-**Important:** If you're adding the projects feature to an existing database, run `supabase/add-projects.sql` instead to add the `projects` table and `project_id` column to `audio_sessions` without recreating existing tables.
+**Checklist completo:** **`docs/O-QUE-TENS-DE-FAZER.md`**.
 
 #### Storage Bucket
 

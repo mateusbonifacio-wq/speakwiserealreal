@@ -41,7 +41,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 
 # ElevenLabs
-ELEVENLABS_API_KEY=sk_482383917a63e0626768fa3c5d0fecf5b4756b896ed90763
+ELEVENLABS_API_KEY=your_elevenlabs_api_key
 
 # Google AI (Gemini)
 GOOGLE_AI_API_KEY=your_google_ai_api_key

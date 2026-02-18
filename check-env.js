@@ -3,6 +3,7 @@
  */
 
 require('dotenv').config({ path: '.env.local' });
+require('dotenv').config();
 
 console.log('🔍 Verificando variáveis de ambiente...\n');
 
@@ -10,6 +11,7 @@ const vars = {
   'NEXT_PUBLIC_SUPABASE_URL': process.env.NEXT_PUBLIC_SUPABASE_URL,
   'NEXT_PUBLIC_SUPABASE_ANON_KEY': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   'SUPABASE_SERVICE_ROLE_KEY': process.env.SUPABASE_SERVICE_ROLE_KEY,
+  'ACCESS_CODE_PASSWORD': process.env.ACCESS_CODE_PASSWORD,
   'ELEVENLABS_API_KEY': process.env.ELEVENLABS_API_KEY,
   'GOOGLE_AI_API_KEY': process.env.GOOGLE_AI_API_KEY,
 };
